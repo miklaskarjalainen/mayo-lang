@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 
 #include "arena.h"
 #include "error.h"
@@ -26,22 +27,25 @@ void arena_init(arena_t* arena, size_t size) {
 
 void arena_free(arena_t* arena) {
     DEBUG_ASSERT(arena, "arena is null");
-    free(arena->data);
-    arena->data = NULL;
-    arena->capacity = 0;
-    arena->size = 0;
-
     if (arena->child) {
         arena_free(arena->child);
         free(arena->child);
     }
+    
+    free(arena->data);
+    arena->data = NULL;
+    arena->capacity = 0;
+    arena->size = 0;
 }
 
 void arena_reset(arena_t* arena) {
     DEBUG_ASSERT(arena, "arena is null");
     arena->capacity = 0;
     arena->size = 0;
-    arena_reset(arena->child);
+
+    if (arena->child) {
+        arena_reset(arena->child);
+    }
 }
 
 void* arena_alloc(arena_t* arena, size_t size) {
@@ -52,6 +56,7 @@ void* arena_alloc(arena_t* arena, size_t size) {
         // If not already, create a child arena which is the same capacity. 
         if (!arena->child) {
             arena->child = malloc(sizeof(arena_t));
+            RUNTIME_ASSERT(arena->child, "child is null...");
 
             // Fail safe: if the requested size is larger than the capacity of 1 arena, use the requested size as the capacity.
             size_t WantedCapacity = arena->capacity >= size ? arena->capacity : size;
@@ -65,4 +70,11 @@ void* arena_alloc(arena_t* arena, size_t size) {
     uint8_t* ptr = &arena->data[arena->size]; 
     arena->size += size;
     return ptr;
+}
+
+void* arena_alloc_zeroed(arena_t* arena, size_t size) {
+    void* data = arena_alloc(arena, size);
+    DEBUG_ASSERT(data, "could not allocate memory?");
+    memset(data, 0, size);
+    return data;
 }

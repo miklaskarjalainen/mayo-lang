@@ -17,6 +17,9 @@ arena_t arena_new(size_t size);
 void arena_init(arena_t* arena, size_t size);
 void arena_free(arena_t* arena);
 void arena_reset(arena_t* arena);
-void* arena_alloc(arena_t* arena, size_t size);
+
+// These allocation functions are guaranteed to be non NULL
+void* arena_alloc(arena_t* arena, size_t size); 
+void* arena_alloc_zeroed(arena_t* arena, size_t size);
 
 #endif
