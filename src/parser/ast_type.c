@@ -6,91 +6,88 @@
 
 typedef void (*fn_on_ast)(ast_node_t* node, const void* additional);
 
+#define AST_BODY_FREE(ast_body)             \
+    do {                                    \
+        size_t Len = arrlenu(ast_body);     \
+        for (size_t i = 0; i < Len; i++) {  \
+            _ast_free_node(ast_body[i]);    \
+        }                                   \
+        arrfree(ast_body);                  \
+    } while(0)
+
 //TODO: some way to do this with __VA_ARGS__, probably turn this is into a macro? Using a void* to pass additional args is kinda dirty.
-static void _ast_call_on_all_children(ast_node_t* parent, fn_on_ast fn, const void* additional) {
+static void _ast_free_node(ast_node_t* parent) {
+    if (!parent) {
+        return;
+    }
+
     // Print children
     switch (parent->kind) {
+        case AST_TRANSLATION_UNIT: {
+            AST_BODY_FREE(parent->data.translation_unit.body);
+            break;
+        }
+
         case AST_FUNCTION_CALL: {
-            size_t Len = arrlenu(parent->data.function_call.args);
-            for (size_t i = 0; i < Len; i++) {
-                fn(parent->data.function_call.args[i], additional);
-            }
+            AST_BODY_FREE(parent->data.function_call.args);
             break;
         }
 
         case AST_RETURN: {
-            fn(parent->data.expr, additional);
+            _ast_free_node(parent->data.expr);
             break;
         }
 
         case AST_IF_STATEMENT: {
-            fn(parent->data.if_statement.expr, additional);
-            size_t Len = arrlenu(parent->data.if_statement.body);
-            for (size_t i = 0; i < Len; i++) {
-                fn(parent->data.if_statement.body[i], additional);
-            }
+            _ast_free_node(parent->data.if_statement.expr);
+
+            AST_BODY_FREE(parent->data.if_statement.body);
+            AST_BODY_FREE(parent->data.if_statement.else_body);
             break;
         }
 
         case AST_BINARY_OP: {
-            fn(parent->data.binary_op.left, additional);
-            fn(parent->data.binary_op.right, additional);
+            _ast_free_node(parent->data.binary_op.left);
+            _ast_free_node(parent->data.binary_op.right);
             break;
         }
 
         case AST_FIELD_INITIALIZER: {
-            fn(parent->data.field_initializer.expr, additional);
+            _ast_free_node(parent->data.field_initializer.expr);
             break;
         }
 
         case AST_VARIABLE_DECLARATION: {
-            fn(parent->data.variable_declaration.expr, additional);
+            _ast_free_node(parent->data.variable_declaration.expr);
+            break;
+        }
+        
+        case AST_STRUCT_DECLARATION: {
+            arrfree(parent->data.struct_declaration.members);
             break;
         }
 
         case AST_FUNCTION_DECLARATION: {
-            size_t Len = arrlenu(parent->data.function_declaration.body);
-            for (size_t i = 0; i < Len; i++) {
-                fn(parent->data.function_declaration.body[i], additional);
-            }
+            arrfree(parent->data.function_declaration.args);
+            AST_BODY_FREE(parent->data.function_declaration.body);
             break;
         }
 
         case AST_WHILE_LOOP: {
-            fn(parent->data.while_loop.expr, additional);
-            size_t Len = arrlenu(parent->data.while_loop.body);
-            for (size_t i = 0; i < Len; i++) {
-                fn(parent->data.while_loop.body[i], additional);
-            }
+            _ast_free_node(parent->data.while_loop.expr);
+            AST_BODY_FREE(parent->data.while_loop.body);
             break;
         }
 
         case AST_FOR_LOOP: {
-            size_t Len = arrlenu(parent->data.for_loop.body);
-            for (size_t i = 0; i < Len; i++) {
-                fn(parent->data.for_loop.body[i], additional);
-            }
+            AST_BODY_FREE(parent->data.for_loop.body);
             break;
         }
+
         default: { break; }
     }
-}
 
-static void _ast_free_internal(ast_node_t* node, const void* _additional) {
-    UNUSED(_additional);
-    _ast_call_on_all_children(node, _ast_free_internal, NULL);
-    
-    if (node->kind == AST_FUNCTION_DECLARATION) {
-        arrfree(node->data.function_declaration.args);
-    }
-    else if (node->kind == AST_FUNCTION_CALL) {
-        arrfree(node->data.function_call.args);
-    }
-    else if (node->kind == AST_STRUCT_INITIALIZER_LIST) {
-        arrfree(node->data.struct_initializer_list.fields);
-    }
-    
-    free(node);
+    free(parent);
 }
 
 ast_node_t* ast_new(ast_kind_t kind) {
@@ -100,5 +97,5 @@ ast_node_t* ast_new(ast_kind_t kind) {
 }
 
 void ast_free_tree(ast_node_t* node) {
-    _ast_free_internal(node, NULL);
+    _ast_free_node(node);
 }
