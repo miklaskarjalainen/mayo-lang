@@ -13,6 +13,7 @@ set(SOURCE_FILES
 
     src/common/string.c src/common/string.h  
     src/common/utils.c src/common/utils.h 
+    src/common/arena.c src/common/arena.h 
     src/common/error.h
     src/common/range.h
     
