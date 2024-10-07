@@ -1,5 +1,6 @@
 #include <stb/stb_ds.h>
 
+#include "../common/arena.h"
 #include "../common/error.h"
 
 #include "ast_type.h"
@@ -86,12 +87,10 @@ static void _ast_free_node(ast_node_t* parent) {
 
         default: { break; }
     }
-
-    free(parent);
 }
 
-ast_node_t* ast_new(ast_kind_t kind) {
-    ast_node_t* ptr = calloc(1, sizeof(ast_node_t));
+ast_node_t* ast_arena_new(arena_t* arena, ast_kind_t kind) {
+    ast_node_t* ptr = arena_alloc_zeroed(arena, sizeof(ast_node_t));
     ptr->kind = kind;
     return ptr;
 }

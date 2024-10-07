@@ -132,7 +132,7 @@ ast_node_t* parse_import_statement(parser_t* parser) {
 
     parser_eat_expect(parser, TOK_SEMICOLON);
 
-    ast_node_t* out = ast_new(AST_IMPORT);
+    ast_node_t* out = ast_arena_new(&parser->arena, AST_IMPORT);
     out->data.literal = variant_get_cstr(&Token.variant);
     return out;
 }
@@ -146,7 +146,7 @@ static ast_node_t* parse_return_statement(parser_t* parser) {
 
     ast_node_t* expr = parser_eat_expression(parser);
     parser_eat_expect(parser, TOK_SEMICOLON);
-    ast_node_t* out = ast_new(AST_RETURN);
+    ast_node_t* out = ast_arena_new(&parser->arena, AST_RETURN);
     out->data.expr = expr;
     out->position = position;
     return out;
@@ -172,7 +172,7 @@ static ast_node_t* parse_if_statement(parser_t* parser) {
         }
     }
 
-    ast_node_t* out = ast_new(AST_IF_STATEMENT);
+    ast_node_t* out = ast_arena_new(&parser->arena, AST_IF_STATEMENT);
     out->data.if_statement.expr = expr;
     out->data.if_statement.body = body;
     out->data.if_statement.else_body = else_body;
@@ -194,7 +194,7 @@ ast_node_t* parse_variable_declaration(parser_t* parser) {
 
     PARSER_ASSERT(expr != NULL, SemiColon.position, "expected expression before ';'");
 
-    ast_node_t* out = ast_new(AST_VARIABLE_DECLARATION);
+    ast_node_t* out = ast_arena_new(&parser->arena, AST_VARIABLE_DECLARATION);
     out->data.variable_declaration.name = variant_get_cstr(&Var);
     out->data.variable_declaration.type = DataType;
     out->data.variable_declaration.expr = expr;
@@ -298,7 +298,7 @@ ast_node_t* parse_array_initializer_list(parser_t* parser) {
     ast_array_initializer_list_t init_list = {
         .exprs = exprs
     };
-    ast_node_t* ast = ast_new(AST_ARRAY_INITIALIZER_LIST);
+    ast_node_t* ast = ast_arena_new(&parser->arena, AST_ARRAY_INITIALIZER_LIST);
     ast->data.array_initializer_list = init_list;
     return ast;
 }
@@ -349,7 +349,7 @@ ast_node_t* parse_struct_initializer_list(parser_t* parser, const char* type_ide
         .name = type_identifier,
         .fields = fields
     };
-    ast_node_t* ast = ast_new(AST_STRUCT_INITIALIZER_LIST);
+    ast_node_t* ast = ast_arena_new(&parser->arena, AST_STRUCT_INITIALIZER_LIST);
     ast->data.struct_initializer_list = init_list;
     return ast;
 } 
@@ -394,7 +394,7 @@ ast_node_t* parse_function_call(parser_t* parser, const char* identifier, bool e
     func_call.name = identifier;
     func_call.args = args;
 
-    ast_node_t* ast = ast_new(AST_FUNCTION_CALL);
+    ast_node_t* ast = ast_arena_new(&parser->arena, AST_FUNCTION_CALL);
     ast->data.function_call = func_call;
     return ast;
 }
@@ -414,7 +414,7 @@ static ast_node_t* parse_while_loop(parser_t* parser) {
         .body = body
     };
 
-    ast_node_t* out = ast_new(AST_WHILE_LOOP);
+    ast_node_t* out = ast_arena_new(&parser->arena, AST_WHILE_LOOP);
     out->data.while_loop = ast_while_loop;
     return out;
 }
@@ -440,7 +440,7 @@ static ast_node_t* parse_for_loop(parser_t* parser) {
         .body = body
     };
 
-    ast_node_t* out = ast_new(AST_FOR_LOOP);
+    ast_node_t* out = ast_arena_new(&parser->arena, AST_FOR_LOOP);
     out->data.for_loop = ast_for_loop;
     return out;
 }
@@ -497,7 +497,7 @@ static ast_node_t* parse_struct_declaration(parser_t* parser) {
         .members = members
     };
 
-    ast_node_t* out = ast_new(AST_STRUCT_DECLARATION);
+    ast_node_t* out = ast_arena_new(&parser->arena, AST_STRUCT_DECLARATION);
     out->data.struct_declaration = struct_decl;
     return out;
 }
@@ -522,7 +522,7 @@ ast_node_t** parse_global_scope(parser_t* parser) {
             }
             case TOK_KEYWORD_FN: {
                 ast_function_declaration_t func_decl = parse_function_declaration(parser);
-                ast_node_t* ast = ast_new(AST_FUNCTION_DECLARATION);
+                ast_node_t* ast = ast_arena_new(&parser->arena, AST_FUNCTION_DECLARATION);
                 ast->data.function_declaration = func_decl;
                 arrpush(global_scope, ast);
                 break;
@@ -602,14 +602,14 @@ ast_node_t** parse_body(parser_t* parser) {
             case TOK_KEYWORD_CONTINUE: {
                 parser_eat_expect(parser, TOK_SEMICOLON);
                 
-                ast_node_t* ast = ast_new(AST_CONTINUE);
+                ast_node_t* ast = ast_arena_new(&parser->arena,AST_CONTINUE);
                 arrpush(body, ast);
                 break;
             }
             case TOK_KEYWORD_BREAK: {
                 parser_eat_expect(parser, TOK_SEMICOLON);
 
-                ast_node_t* ast = ast_new(AST_BREAK);
+                ast_node_t* ast = ast_arena_new(&parser->arena, AST_BREAK);
                 arrpush(body, ast);
                 break;
             }

@@ -107,7 +107,7 @@ static ast_node_t* ast_parse_primary(parser_t* parser) {
 
     switch (tk.kind) {
         case TOK_CONST_VALUE: {
-            ast_node_t* ast = ast_new(AST_CONST_VALUE);
+            ast_node_t* ast = ast_arena_new(&parser->arena, AST_CONST_VALUE);
             ast->data.constant = tk.variant;
             return ast;
         }
@@ -125,7 +125,7 @@ static ast_node_t* ast_parse_primary(parser_t* parser) {
                 return parse_struct_initializer_list(parser, TypeName);
             }
             /* regular variable */
-            ast_node_t* ast = ast_new(AST_GET_VARIABLE);
+            ast_node_t* ast = ast_arena_new(&parser->arena, AST_GET_VARIABLE);
             ast->data.literal = tk.variant.value.literal.chars;
             return ast;
         }
@@ -160,7 +160,7 @@ static ast_node_t* ast_parse_expression(parser_t* parser, uint8_t prec) {
             .operation = unary_op,
             .operand   = ast_parse_expression(parser, prec)
         };
-        ast_node_t* ast = ast_new(AST_UNARY_OP);
+        ast_node_t* ast = ast_arena_new(&parser->arena, AST_UNARY_OP);
         ast->data.unary_op = unary;
         return ast;
     }
@@ -199,7 +199,7 @@ static ast_node_t* ast_parse_expression(parser_t* parser, uint8_t prec) {
                     ast_node_t* new_rhs = ast_parse_expression(parser, 0);
                     parser_eat_expect(parser, TOK_BRACKET_CLOSE);
                     
-                    ast_node_t* operator = ast_new(AST_BINARY_OP);
+                    ast_node_t* operator = ast_arena_new(&parser->arena, AST_BINARY_OP);
                     operator->data.binary_op.operation = BINARY_OP_ARRAY_INDEX;
                     operator->data.binary_op.left = lhs;
                     operator->data.binary_op.right = rhs;
@@ -211,7 +211,7 @@ static ast_node_t* ast_parse_expression(parser_t* parser, uint8_t prec) {
                 rhs = ast_parse_expression(parser, prec);
             }
 
-            ast_node_t* operator = ast_new(AST_BINARY_OP);
+            ast_node_t* operator = ast_arena_new(&parser->arena, AST_BINARY_OP);
             operator->data.binary_op.operation = op;
             operator->data.binary_op.left = lhs;
             operator->data.binary_op.right = rhs;

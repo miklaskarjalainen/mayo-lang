@@ -119,7 +119,9 @@ typedef struct ast_node_t {
     file_position_t position;
 } ast_node_t;
 
-ast_node_t* ast_new(ast_kind_t kind);
+struct arena_t;
+
+ast_node_t* ast_arena_new(struct arena_t* arena, ast_kind_t kind);
 void ast_free_tree(ast_node_t* node); // frees all it's children as well
 
 #endif
