@@ -8,7 +8,6 @@
 #include "parser.h"
 #include "parser/ast_type.h"
 #include "parser/ast_print.h"
-#include "typechecker/typechecker.h"
 
 #define STB_DS_IMPLEMENTATION
 #include <stb/stb_ds.h>

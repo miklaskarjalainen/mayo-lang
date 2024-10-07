@@ -30,8 +30,6 @@ set(SOURCE_FILES
     src/parser/parser_parse.c src/parser/parser_parse.h 
     src/parser.c src/parser.h
 
-    src/typechecker/typechecker.c src/typechecker/typechecker.h
-
     src/variant/core_type.c src/variant/core_type.h 
     src/variant/variant.c src/variant/variant.h 
 
