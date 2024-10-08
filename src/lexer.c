@@ -49,7 +49,7 @@ lexer_t* lexer_str(char* content, const char* fpath) {
     
     // Initialize members
     l->tokens = NULL;
-    l->word = string_new();
+    l->word = string_with_capacity(0xFF);
     l->filepath = filepath_copied;
     l->content = content;
     l->content_pointer = 0;

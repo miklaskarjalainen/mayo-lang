@@ -51,7 +51,7 @@ static datatype_t* parse_datatype_modifiers(parser_t* parser, datatype_t* inner)
     /* ptr */
     if (parser_eat_if(parser, TOK_STAR)) {
         /* @FIXME: parsing type from "let i: i32*= 0" causes funny things, star&eq is tokenized as "TOK_STAR_EQUAL" */
-        datatype_t* ptr_type = calloc(1, sizeof(datatype_t));
+        datatype_t* ptr_type = arena_alloc_zeroed(&parser->arena, sizeof(datatype_t));
         ptr_type->kind = DATATYPE_POINTER;
         ptr_type->data.pointer = inner;
         return parse_datatype_modifiers(parser, ptr_type);
@@ -63,7 +63,7 @@ static datatype_t* parse_datatype_modifiers(parser_t* parser, datatype_t* inner)
         const size_t Len = variant_as_integer(&Size.variant);
         parser_eat_expect(parser, TOK_BRACKET_CLOSE);
 
-        datatype_t* array_type = calloc(1, sizeof(datatype_t));
+        datatype_t* array_type = arena_alloc_zeroed(&parser->arena, sizeof(datatype_t));
         array_type->kind = DATATYPE_ARRAY;
         array_type->data.array.inner = inner;
         array_type->data.array.size = Len;
@@ -94,7 +94,7 @@ static datatype_t parse_eat_datatype(parser_t* parser) {
     const char* Typename = variant_get_cstr(&TypenameTok.variant);
     const core_type_t Type = core_type_from_str(Typename);
 
-    datatype_t* type = calloc(1, sizeof(datatype_t));
+    datatype_t* type = arena_alloc_zeroed(&parser->arena, sizeof(datatype_t));
     if (Type != CORETYPE_INVALID) {
         /* builtin */
         type->kind = DATATYPE_CORE_TYPE;
@@ -109,8 +109,6 @@ static datatype_t parse_eat_datatype(parser_t* parser) {
     /* get all modifiers, array, ptr, etc. */
     datatype_t* new_type = parse_datatype_modifiers(parser, type);
     datatype_t dereferenced = *new_type;
-    free(new_type);
-
     return dereferenced;
 }
 
