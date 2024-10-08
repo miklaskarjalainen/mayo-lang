@@ -40,7 +40,7 @@ token_t parser_eat_expect(parser_t* parser, token_kind_t expect) {
     if (tok.kind != expect) {
         file_position_t pos = tok.position;
         PRINT_ERROR_IN_FILE(pos, "expected '%s' got '%s' instead!", token_kind_to_str(expect), token_kind_to_str(tok.kind));
-        exit(-1);
+        LONGJUMP(1);
     }
 
     return tok;

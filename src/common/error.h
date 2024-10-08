@@ -3,17 +3,23 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <setjmp.h>
 #include "utils.h"
+
+extern jmp_buf g_Jumpluff;
 
 #define PANIC_EXIT_CODE EXIT_FAILURE
 #define ASSERT_EXIT_CODE EXIT_FAILURE
+
+#define SETJUMP() (setjmp(g_Jumpluff))
+#define LONGJUMP(num) longjmp(g_Jumpluff, num)
 
 #define PANIC(...)                                                                                      \
     do {                                                                                                \
         printf(STDOUT_ERROR "Error: " STDOUT_RESET "program panicked at " __FILE__ ":%i '", __LINE__);  \
         printf(__VA_ARGS__);                                                                            \
         printf("'\n");                                                                                  \
-        exit(PANIC_EXIT_CODE);                                                                          \
+        LONGJUMP(EXIT_FAILURE);                                                                         \
     } while(0)
 
 // Is not removed in release builds, see 'DEBUG_ASSERT'.
@@ -23,7 +29,7 @@
             printf(STDOUT_ERROR "Error: " STDOUT_RESET "assertion failed at " __FILE__ ":%i '", __LINE__);  \
             printf(__VA_ARGS__);                                                                            \
             printf("'\n");                                                                                  \
-            exit(ASSERT_EXIT_CODE);                                                                         \
+            LONGJUMP(EXIT_FAILURE);                                                                         \
         }                                                                                                   \
     } while(0)
 
