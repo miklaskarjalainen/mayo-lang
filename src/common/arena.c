@@ -4,12 +4,15 @@
 #include "arena.h"
 #include "error.h"
 
+static arena_t* arena_get_child(const arena_t* arena) {
+    return (arena_t*)(arena->data);
+}
+
 arena_t arena_new(size_t size) {
     arena_t arr = {
         .size = 0,
-        .capacity = size,
+        .capacity = 0,
         .data = NULL,
-        .child = NULL
     };
     arena_init(&arr, size);
     return arr; 
@@ -18,53 +21,61 @@ arena_t arena_new(size_t size) {
 void arena_init(arena_t* arena, size_t size) {
     DEBUG_ASSERT(arena, "arena is null");
 
-    arena->size = 0;
-    arena->capacity = size;
-    arena->child = NULL;
-    arena->data = malloc(size);
+    // First bytes of data stores another arena.
+    // So if we overrun this arena we can start using that one.
+    arena->size = sizeof(arena_t);
+    arena->capacity = size+sizeof(arena_t);
+    arena->data = malloc(arena->capacity);
+
+    arena_t* child = arena_get_child(arena);
+    child->capacity = 0;
+    child->size = 0;
+    child->data = NULL;
+
     RUNTIME_ASSERT(arena->data, "could not allocate memory for arena!"); 
 }
 
 void arena_free(arena_t* arena) {
     DEBUG_ASSERT(arena, "arena is null");
-    if (arena->child) {
-        arena_free(arena->child);
-        free(arena->child);
+    if (arena->data) {
+        arena_free(arena_get_child(arena));
+        free(arena->data);
     }
-    
-    free(arena->data);
     arena->data = NULL;
     arena->capacity = 0;
     arena->size = 0;
 }
 
 void arena_reset(arena_t* arena) {
-    DEBUG_ASSERT(arena, "arena is null");
+    DEBUG_ASSERT(arena, "Arena is null. Passed null as parameter!");
+    if (arena->data) {
+        arena_reset(arena_get_child(arena));
+    }
     arena->capacity = 0;
     arena->size = 0;
-
-    if (arena->child) {
-        arena_reset(arena->child);
-    }
 }
 
 void* arena_alloc(arena_t* arena, size_t size) {
-    DEBUG_ASSERT(arena, "arena is null");
+    DEBUG_ASSERT(arena, "Arena is null. Passed null as parameter!");
+    DEBUG_ASSERT(arena->data, "Data is null! Arena not initialized!");
 
     // Requested size does not fit in the arena!
     if (arena->size + size > arena->capacity) {
-        // If not already, create a child arena which is the same capacity. 
-        if (!arena->child) {
-            arena->child = malloc(sizeof(arena_t));
-            RUNTIME_ASSERT(arena->child, "child is null...");
-
-            // Fail safe: if the requested size is larger than the capacity of 1 arena, use the requested size as the capacity.
-            size_t WantedCapacity = arena->capacity >= size ? arena->capacity : size;
-            arena_init(arena->child, WantedCapacity);
+        // If not already, initialize child arena if not already initialized.
+        arena_t* child = arena_get_child(arena);
+        if (!child->data) {
+            // Fail safe: if the requested size is larger than the capacity of 1 arena, use the requested size as the capacity for the child arena.
+            const size_t RealUsableCapacity = arena->capacity - sizeof(arena_t); // Child arena is also stored in data.
+            const size_t ChildCapacity = 
+                RealUsableCapacity >= size ?
+                    RealUsableCapacity : 
+                    size;
+            
+            arena_init(child, ChildCapacity);
         }
 
         // And use it to allocate the memory.
-        return arena_alloc(arena->child, size);
+        return arena_alloc(child, size);
     }
 
     uint8_t* ptr = &arena->data[arena->size]; 

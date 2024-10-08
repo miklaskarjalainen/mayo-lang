@@ -4,19 +4,21 @@
 #include <stddef.h>
 #include <stdint.h>
 
+/*
+    All arenas will store another arena at *data when initialized.
+    e.g MEMORY [ arena_t, rest of of the allocated data ]
+                   ^-- data*
+*/
 typedef struct arena_t {
     size_t size;
     size_t capacity;
     uint8_t* data;
-
-    // TODO: maybe allocate this into the arena? :))))
-    // TODO: maybe it could even be the first bytes of data, so storing this ptr would be unnecessary.
-    struct arena_t* child; // If the arena's capacity was overran then a child is created and used.
 } arena_t;
 
+
 // Initialize the arena allocator
-arena_t arena_new(size_t size);
-void arena_init(arena_t* arena, size_t size);
+arena_t arena_new(size_t available_capacity);
+void arena_init(arena_t* arena, size_t available_capacity);
 void arena_free(arena_t* arena);
 void arena_reset(arena_t* arena);
 
