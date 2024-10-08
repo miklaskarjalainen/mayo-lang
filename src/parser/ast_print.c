@@ -15,9 +15,9 @@
         These allows drawing the pipes past grand children.
         For the last child the branch should be cleared so "BRANCH_LAST_CHILD_CHAR" can be printed.
 */
-#define HAS_BRANCH(depth)   (bool)(sPrintTreeBranchBits & (1 << depth))
-#define SET_BRANCH(depth)   (sPrintTreeBranchBits |= 1 << depth)
-#define CLEAR_BRANCH(depth) (sPrintTreeBranchBits &= ~(1 << depth))
+#define HAS_BRANCH(depth)   (bool)(sPrintTreeBranchBits & (1 << (depth)))
+#define SET_BRANCH(depth)   (sPrintTreeBranchBits |= 1 << (depth))
+#define CLEAR_BRANCH(depth) (sPrintTreeBranchBits &= ~(1 << (depth)))
 
 #define AST_TYPE_COLOR STDOUT_BLUE
 #define BRANCH_COLOR STDOUT_GREEN
@@ -26,7 +26,7 @@
 #define BRANCH_LAST_CHILD_CHAR "\u2517"
 #define BRANCH_CONNECT_CHILD_CHAR "\u2501"
 
-static uint32_t sPrintTreeBranchBits = 0;
+static uint64_t sPrintTreeBranchBits = 0;
 
 const char* op_to_str(op_t op) {
     DEBUG_ASSERT(op >= 0 && op < OP_COUNT, "op is out of range");
@@ -76,6 +76,12 @@ static void print_ast_indention(size_t depth) {
     Print func for every type. I do this to force type safety, this could just be a HUGE switch statement.
 */
 #define SPACE_MULTIPLIER 3
+#define AST_PRINT(depth, ...)       \
+    do {                            \
+        print_ast_indention(depth); \
+        printf(__VA_ARGS__);        \
+    } while (0)
+
 #define AST_PRINT_SETUP(depth, kind, ...)       \
     do {                                        \
         print_ast_indention(depth);             \
@@ -120,18 +126,21 @@ static void print_ast_if_statement(const ast_if_statement_t* if_statement, size_
     AST_PRINT_SETUP_NO_ADDITIONAL(depth, AST_IF_STATEMENT);
 
     SET_BRANCH(depth);
-    print_ast_internal(if_statement->expr, depth+1);
+    AST_PRINT(depth+1, "if-expr: \n");
+    print_ast_internal(if_statement->expr, depth+2);
 
-    const size_t Len = arrlenu(if_statement->body);        
-    for (size_t i = 0; i < Len; i++) {        
-    if ((i + 1) == Len && if_statement->else_body == NULL) {                   
-        CLEAR_BRANCH(depth);                  
-      }                                       
-      print_ast_internal(if_statement->body[i], depth + 1);
-    }   
+    if (!if_statement->else_body) { CLEAR_BRANCH(depth); }
 
-    AST_PRINT_NODE_BODY(if_statement->else_body, depth);
-    CLEAR_BRANCH(depth);
+    SET_BRANCH(depth+1);
+    AST_PRINT(depth+1, "if-body: \n");
+    AST_PRINT_NODE_BODY(if_statement->body, depth+1);
+
+    if (if_statement->else_body) {
+        CLEAR_BRANCH(depth);
+        AST_PRINT(depth+1, "else-body: \n");
+        SET_BRANCH(depth+1);
+        AST_PRINT_NODE_BODY(if_statement->else_body, depth+1);
+    }
 }
 
 static void print_ast_variable_declaration(const ast_variable_declaration_t* var_decl, size_t depth) {
@@ -228,7 +237,9 @@ static void print_ast_function_call(const ast_function_call_t* func_call, size_t
 static void print_ast_while_loop(const ast_while_loop_t* while_loop, size_t depth) {
     AST_PRINT_SETUP_NO_ADDITIONAL(depth, AST_WHILE_LOOP);
     
-    SET_BRANCH(depth);
+    if (while_loop->body)
+        SET_BRANCH(depth);
+    
     print_ast_internal(while_loop->expr, depth + 1);
     AST_PRINT_NODE_BODY(while_loop->body, depth);
 }
