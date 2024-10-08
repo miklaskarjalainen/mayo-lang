@@ -579,9 +579,8 @@ ast_node_t** parse_body(parser_t* parser) {
             case TOK_IDENTIFIER: {
                 /* 
                     Expressions, which start with an identifier.
-                    Can be 'default' case, but here for now, because we will capture more errors for unhandled cases.
                 */
-                parser_uneat(parser);
+                parser_uneat(parser); // restore identifier, so it can be parsed as an expression.
                 ast_node_t* ast = parser_eat_expression(parser);
                 parser_eat_expect(parser, TOK_SEMICOLON);
                 arrpush(body, ast);

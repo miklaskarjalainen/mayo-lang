@@ -9,6 +9,8 @@ typedef struct arena_t {
     size_t capacity;
     uint8_t* data;
 
+    // TODO: maybe allocate this into the arena? :))))
+    // TODO: maybe it could even be the first bytes of data, so storing this ptr would be unnecessary.
     struct arena_t* child; // If the arena's capacity was overran then a child is created and used.
 } arena_t;
 
