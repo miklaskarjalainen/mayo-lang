@@ -61,12 +61,20 @@ static const struct {
     {"--echo", "-e", "prints to screen (for CLI debugging)", _exec_echo},
 };
 
+#ifdef NDEBUG
+#define DEBUG_ENABLED 0
+#else
+#define DEBUG_ENABLED 1
+#endif
+
 static bool _exec_help(program_params_t* params, char* arg) {
     params->do_compilation = false;
     
     UNUSED(arg);
     static const char* s_Help =
     STDOUT_YELLOW STDOUT_BOLD "Options:\n" STDOUT_RESET;
+
+    printf("Debug build: %s\n", BOOL2STR(DEBUG_ENABLED));
 
     printf("%s", s_Help);
     for (size_t i = 0; i < ARRAY_LEN(s_Args); i++) {

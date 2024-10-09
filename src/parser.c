@@ -11,7 +11,7 @@
 #include "parser.h"
 
 // Use "optimal" size for debug builds. Just so we can test more of our arena implementation.
-#ifdef __OPTIMIZE__
+#ifdef NDEBUG
 #define PARSER_ARENA_CAPACITY 4096
 #else
 #define PARSER_ARENA_CAPACITY sizeof(ast_node_t) * 2

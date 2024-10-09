@@ -46,7 +46,7 @@ char* read_file_contents(const char* fpath) {
 
     // Create a buffer and read the file contents into the buffer.
     char *string = malloc(fsize + 1);
-    fread(string, fsize, 1, f);
+    unsigned long r = fread(string, fsize, 1, f); UNUSED(r);
     fclose(f);
 
     // Terminate with null
