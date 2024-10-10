@@ -51,7 +51,6 @@ void arena_reset(arena_t* arena) {
     if (arena->data) {
         arena_reset(arena_get_child(arena));
     }
-    arena->capacity = 0;
     arena->size = 0;
 }
 
