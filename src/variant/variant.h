@@ -16,10 +16,10 @@ typedef struct datatype_t {
     union {
         core_type_t builtin;
         const char* typename;
-        const struct datatype_t* pointer;
+        struct datatype_t* pointer;
         struct {
             size_t size;
-            const struct datatype_t* inner;
+            struct datatype_t* inner;
         } array;
     } data;
 
@@ -42,6 +42,7 @@ typedef struct variant_t {
 /* Datatype*/
 datatype_t datatype_new(datatype_kind kind);
 void datatype_print(const datatype_t* datatype);
+const datatype_t* datatype_underlying_type(const datatype_t* type); // i32* -> i32, i32*[2] -> i32, i32[10] -> i32
 
 /* Variant */
 variant_t variant_new(datatype_kind kind);

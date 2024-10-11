@@ -99,6 +99,24 @@ variant_t variant_new(datatype_kind kind) {
     };
 }
 
+const datatype_t* datatype_underlying_type(const datatype_t* type) {
+    DEBUG_ASSERT(type, "type is null");
+
+    switch (type->kind) {
+        case DATATYPE_POINTER: {
+            return datatype_underlying_type(type->data.pointer);
+        }
+        case DATATYPE_ARRAY: {
+            return datatype_underlying_type(type->data.array.inner);
+        }
+
+        default: {
+            return type;
+        }
+    }
+
+}
+
 variant_t variant_core(core_type_t core) {
     variant_t v = variant_new(DATATYPE_CORE_TYPE);
     v.type.data.builtin = core;
