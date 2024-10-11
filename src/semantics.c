@@ -202,8 +202,14 @@ static void _analyze_global_node(ast_node_t* node, global_scope_t* global) {
                 const datatype_t* UnderlyingType = datatype_underlying_type(VarType);
                 ANALYZER_ERROR(node->position, "In function '%s' return type '%s' is not defined!",  FnName, UnderlyingType->data.typename);
             }
-
             sym_table_insert(&global->functions, node->data.function_declaration.name, node);
+
+            // Main specific
+            if (strcmp(FnName, "main") == 0) {
+                if (VarType->kind != DATATYPE_CORE_TYPE || VarType->data.builtin != CORETYPE_I32) {
+                    ANALYZER_ERROR(node->position, "The main function can only return 'i32'");
+                }
+            }
 
             // Analyze body
             sym_table_t variables;
