@@ -186,13 +186,23 @@ static void _analyze_global_node(ast_node_t* node, global_scope_t* global) {
         }
 
         case AST_FUNCTION_DECLARATION: { 
+            const char* FnName = node->data.function_declaration.name;
             // Multiple definitions?
             {
-                ast_node_t* fn = sym_table_get(&global->functions, node->data.function_declaration.name);
+                ast_node_t* fn = sym_table_get(&global->functions, FnName);
                 if (fn) {
-                    ANALYZER_ERROR(node->position, "Function '%s' is defined more than once!", node->data.function_declaration.name);
+                    ANALYZER_ERROR(node->position, "Function '%s' is defined more than once!", FnName);
                 }
             }
+
+            // Return type valid
+            const datatype_t* VarType = &node->data.function_declaration.return_type;
+            const bool IsTypeValid = _analyze_is_valid_type(global, VarType);
+            if (!IsTypeValid) {
+                const datatype_t* UnderlyingType = datatype_underlying_type(VarType);
+                ANALYZER_ERROR(node->position, "In function '%s' return type '%s' is not defined!",  FnName, UnderlyingType->data.typename);
+            }
+
             sym_table_insert(&global->functions, node->data.function_declaration.name, node);
 
             // Analyze body

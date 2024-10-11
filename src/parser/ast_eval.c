@@ -127,6 +127,7 @@ static ast_node_t* ast_parse_primary(parser_t* parser) {
             /* regular variable */
             ast_node_t* ast = ast_arena_new(&parser->arena, AST_GET_VARIABLE);
             ast->data.literal = tk.variant.value.literal.chars;
+            ast->position = tk.position;
             return ast;
         }
 

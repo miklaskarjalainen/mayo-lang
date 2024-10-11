@@ -199,7 +199,7 @@ ast_node_t* parse_variable_declaration(parser_t* parser) {
     return out;
 }
 
-static ast_function_declaration_t parse_function_declaration(parser_t* parser) {
+static ast_node_t* parse_function_declaration(parser_t* parser) {
     /* 
         Syntax:
             "fn <identifier>(<arg1-idf>: <arg1-type>, ...) -> <return-type> { <body> }"
@@ -258,7 +258,11 @@ static ast_function_declaration_t parse_function_declaration(parser_t* parser) {
     func_decl.args = args;
     func_decl.return_type = ReturnType;
     func_decl.body = body;
-    return func_decl;
+
+    ast_node_t* ast = ast_arena_new(&parser->arena, AST_FUNCTION_DECLARATION);
+    ast->data.function_declaration = func_decl;
+    ast->position = FunctionName.position;
+    return ast;
 }
 
 ast_node_t* parse_array_initializer_list(parser_t* parser) {
@@ -358,7 +362,9 @@ ast_node_t* parse_function_call(parser_t* parser, const char* identifier, bool e
             expression: "<identifier>(<expr>, <expr>, ...)"
             statement : "<identifier>(<expr>, <expr>, ...);"
     */
-    DEBUG_ASSERT(parser_peek_behind(parser).kind == TOK_IDENTIFIER, "?");
+
+    const token_t IdentifierTok = parser_peek_behind(parser);
+    DEBUG_ASSERT(IdentifierTok.kind == TOK_IDENTIFIER, "?");
     parser_eat_expect(parser, TOK_PAREN_OPEN);
     
     ast_node_t** args = NULL;
@@ -393,6 +399,7 @@ ast_node_t* parse_function_call(parser_t* parser, const char* identifier, bool e
     func_call.args = args;
 
     ast_node_t* ast = ast_arena_new(&parser->arena, AST_FUNCTION_CALL);
+    ast->position = IdentifierTok.position;
     ast->data.function_call = func_call;
     return ast;
 }
@@ -519,9 +526,7 @@ ast_node_t** parse_global_scope(parser_t* parser) {
                 break;
             }
             case TOK_KEYWORD_FN: {
-                ast_function_declaration_t func_decl = parse_function_declaration(parser);
-                ast_node_t* ast = ast_arena_new(&parser->arena, AST_FUNCTION_DECLARATION);
-                ast->data.function_declaration = func_decl;
+                ast_node_t* ast = parse_function_declaration(parser);
                 arrpush(global_scope, ast);
                 break;
             }
