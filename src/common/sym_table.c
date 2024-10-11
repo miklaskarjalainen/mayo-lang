@@ -11,8 +11,6 @@
 #define TABLE_ARENA_CAPACITY 16
 #endif
 
-#define SYM_TABLE_CAPACITY 8
-
 static uint32_t _hash_str(const char* str) {
     // TODO: actually make this good. It cannot use strlen, because having a loop in this would be slow.
     DEBUG_ASSERT(str, "str is nullptr");
