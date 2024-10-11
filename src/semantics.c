@@ -66,7 +66,7 @@ static const datatype_t* _analyze_expression(const global_scope_t* global, const
 
             ast_node_t* func_decl = sym_table_get(&global->functions, expr->data.literal);
             if (!func_decl) {
-                ANALYZER_ERROR(expr->position, "No variable called '%s' exists, used in expression!", expr->data.literal);
+                ANALYZER_ERROR(expr->position, "Function called '%s' does not exists, used in expression!", expr->data.literal);
             }
 
             DEBUG_ASSERT(func_decl->kind == AST_FUNCTION_DECLARATION, "?");
