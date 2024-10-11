@@ -43,6 +43,7 @@ typedef struct variant_t {
 datatype_t datatype_new(datatype_kind kind);
 void datatype_print(const datatype_t* datatype);
 const datatype_t* datatype_underlying_type(const datatype_t* type); // i32* -> i32, i32*[2] -> i32, i32[10] -> i32
+bool datatype_cmp(const datatype_t* rhs, const datatype_t* lhs);
 
 /* Variant */
 variant_t variant_new(datatype_kind kind);

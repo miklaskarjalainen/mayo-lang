@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 
 #include "../common/error.h"
 #include "../common/utils.h"
@@ -114,7 +115,39 @@ const datatype_t* datatype_underlying_type(const datatype_t* type) {
             return type;
         }
     }
+}
 
+bool datatype_cmp(const datatype_t* lhs, const datatype_t* rhs) {
+    if (lhs == rhs) {
+        return true;
+    }
+    if (lhs->kind != rhs->kind) {
+        return false;
+    }
+
+    switch (lhs->kind) {
+        case DATATYPE_CORE_TYPE: {
+            return lhs->data.builtin == rhs->data.builtin;
+        }
+        case DATATYPE_POINTER: {
+            return datatype_cmp(lhs->data.pointer, rhs->data.pointer);
+        }
+        case DATATYPE_ARRAY: {
+            if (lhs->data.array.size != rhs->data.array.size) {
+                return false;
+            }
+            return datatype_cmp(lhs->data.array.inner, lhs->data.array.inner);
+        }
+        case DATATYPE_STRUCT: {
+            return strcmp(lhs->data.typename, rhs->data.typename) == 0;
+        }
+
+        default: {
+            PANIC("not implemented!");
+        }
+    }
+
+    return false;
 }
 
 variant_t variant_core(core_type_t core) {
