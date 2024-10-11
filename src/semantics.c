@@ -41,29 +41,126 @@ static bool _analyze_is_valid_type(const global_scope_t* global, const datatype_
     return false;
 }
 
+static const datatype_t* _analyze_expression(const global_scope_t* global, const sym_table_t* variables, ast_node_t* expr) {
+    static const datatype_t BoolType = {
+        .kind = DATATYPE_CORE_TYPE,
+        .data.builtin = CORETYPE_BOOL
+    };
+
+    switch (expr->kind) {
+        case AST_CONST_VALUE: {
+            return &expr->data.constant.type;
+        }
+
+        case AST_GET_VARIABLE: {
+            ast_node_t* var_decl = sym_table_get(variables, expr->data.literal);
+            if (!var_decl) {
+                ANALYZER_ERROR(expr->position, "No variable called '%s' exists, used in expression!", expr->data.literal);
+            }
+
+            DEBUG_ASSERT(var_decl->kind == AST_VARIABLE_DECLARATION, "?");
+            return &var_decl->data.variable_declaration.type;
+        }
+
+        case AST_FUNCTION_CALL: {
+            // TODO: ARGS
+
+            ast_node_t* func_decl = sym_table_get(&global->functions, expr->data.literal);
+            if (!func_decl) {
+                ANALYZER_ERROR(expr->position, "No variable called '%s' exists, used in expression!", expr->data.literal);
+            }
+
+            DEBUG_ASSERT(func_decl->kind == AST_FUNCTION_DECLARATION, "?");
+            return &func_decl->data.function_declaration.return_type;
+        }
+
+        case AST_BINARY_OP: {
+            const datatype_t* Lhs = _analyze_expression(global, variables, expr->data.binary_op.left);
+            const datatype_t* Rhs = _analyze_expression(global, variables, expr->data.binary_op.right);
+            if (!datatype_cmp(Lhs, Rhs)) {
+                ANALYZER_ERROR(expr->position, "Type mismatch!");
+            }
+
+            switch (expr->data.binary_op.operation) {
+                case BINARY_OP_NOT_EQUAL:
+                case BINARY_OP_EQUAL: {
+                    return &BoolType;
+                }
+
+                default: {
+                    return Lhs;
+                }
+            }
+        }
+
+        default: {
+            PANIC("not implemented for type %u", (uint32_t)expr->kind);
+        }
+    }
+    
+}
+
 static void _analyze_scoped_node(ast_node_t* node, global_scope_t* global, sym_table_t* variables) {
+    if (!node) {
+        return;
+    }
+
     UNUSED(global);
 
     switch (node->kind) {
         case AST_VARIABLE_DECLARATION: {
+            const char* VarName = node->data.variable_declaration.name;
+
             // Already used?
             {
-                ast_node_t* var_decl = sym_table_get(variables, node->data.variable_declaration.name);
+                ast_node_t* var_decl = sym_table_get(variables, VarName);
                 if (var_decl){
-                    ANALYZER_ERROR(node->position, "Variable called '%s' is already defined!", node->data.variable_declaration.name);
+                    ANALYZER_ERROR(node->position, "Variable called '%s' is already defined!", VarName);
                 }
             }
 
             // Has a valid type?
-            const bool IsTypeValid = _analyze_is_valid_type(global, &node->data.variable_declaration.type);
+            const datatype_t* VarType = &node->data.variable_declaration.type;
+            const bool IsTypeValid = _analyze_is_valid_type(global, VarType);
             if (!IsTypeValid) {
-                const datatype_t* UnderlyingType = datatype_underlying_type(&node->data.variable_declaration.type);
+                const datatype_t* UnderlyingType = datatype_underlying_type(VarType);
                 ANALYZER_ERROR(node->position, "Type '%s' is not defined!", UnderlyingType->data.typename);
             }
 
-            sym_table_insert(variables, node->data.variable_declaration.name,node);
+            // Get type of expression
+            const datatype_t* ExprType = _analyze_expression(global, variables, node->data.variable_declaration.expr);
+            
+            // @FIXME: HACK to make i64 types work with i32 declarations. Do actual casts.
+            if (
+                !datatype_cmp(VarType, ExprType) &&
+                !(
+                    VarType->kind == DATATYPE_CORE_TYPE && ExprType->kind == DATATYPE_CORE_TYPE &&
+                    VarType->data.builtin == CORETYPE_I32 && ExprType->data.builtin == CORETYPE_I64 
+                )
+            ) {
+                ANALYZER_ERROR(node->position, "Type mismatch between declaration and expression!");
+            }
+
+            sym_table_insert(variables, VarName,node);
             break;
         }
+
+        case AST_IF_STATEMENT: {
+            // expr
+            _analyze_expression(global, variables, node->data.if_statement.expr);
+
+            // TODO: SCOPES
+            CALL_ON_BODY(_analyze_scoped_node, node->data.if_statement.body, global, variables);
+            CALL_ON_BODY(_analyze_scoped_node, node->data.if_statement.else_body, global, variables);
+            break;
+        }
+
+        case AST_UNARY_OP:
+        case AST_BINARY_OP: {
+            _analyze_expression(global, variables, node);
+            break;
+        }
+
         default: {
             break;
         }
