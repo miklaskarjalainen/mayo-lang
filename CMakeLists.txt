@@ -12,6 +12,7 @@ set(SOURCE_FILES
     src/cli/cli.c src/cli/cli.h
 
     src/common/string.c src/common/string.h  
+    src/common/sym_table.c src/common/sym_table.h  
     src/common/utils.c src/common/utils.h 
     src/common/arena.c src/common/arena.h 
     src/common/error.h
@@ -30,6 +31,8 @@ set(SOURCE_FILES
     src/parser/parser_error.h 
     src/parser/parser_parse.c src/parser/parser_parse.h 
     src/parser.c src/parser.h
+    
+    src/semantics.c src/semantics.h
 
     src/variant/core_type.c src/variant/core_type.h 
     src/variant/variant.c src/variant/variant.h 

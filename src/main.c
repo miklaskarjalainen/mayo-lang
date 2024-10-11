@@ -1,11 +1,14 @@
 #include <stdio.h>
+#include "cli/cli.h"
+
 #include "common/error.h"
 #include "common/string.h"
+#include "common/sym_table.h"
 #include "common/utils.h"
-#include "cli/cli.h"
 
 #include "lexer.h"
 #include "parser.h"
+#include "semantics.h"
 #include "parser/ast_type.h"
 #include "parser/ast_print.h"
 
@@ -49,6 +52,7 @@ int main(int argc, char** argv) {
         // Parsing
         parser_parse(&parser);
         print_ast_tree(parser.node_root);
+        semantic_analysis(parser.node_root);
     }
 
     parser_cleanup(&parser);
