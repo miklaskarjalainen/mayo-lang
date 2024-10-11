@@ -27,10 +27,12 @@ void arena_init(arena_t* arena, size_t size) {
     arena->capacity = size+sizeof(arena_t);
     arena->data = malloc(arena->capacity);
 
-    arena_t* child = arena_get_child(arena);
-    child->capacity = 0;
-    child->size = 0;
-    child->data = NULL;
+    {
+        arena_t* child = arena_get_child(arena);
+        child->capacity = 0;
+        child->size = sizeof(arena_t);
+        child->data = NULL;
+    }
 
     RUNTIME_ASSERT(arena->data, "could not allocate memory for arena!"); 
 }
@@ -51,7 +53,7 @@ void arena_reset(arena_t* arena) {
     if (arena->data) {
         arena_reset(arena_get_child(arena));
     }
-    arena->size = 0;
+    arena->size = sizeof(arena_t);
 }
 
 void* arena_alloc(arena_t* arena, size_t size) {
