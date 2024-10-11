@@ -22,8 +22,9 @@
 
 #include "arena.h"
 
-#define SYM_TABLE_CAPACITY 8
+#define SYM_TABLE_CAPACITY 32
 
+//? TBH just a dynamic array would probably be sufficient, since most scopes don't have many identifiers.
 typedef struct symbol_t {
     const char* key;
     void* data;
@@ -33,7 +34,7 @@ typedef struct symbol_t {
 typedef struct sym_table_t {
     arena_t arena;
     symbol_t head[SYM_TABLE_CAPACITY];
-    // struct sym_table_t* other; // next scope
+    struct sym_table_t* parent; // If key not found in this table, tries to search from here next. Set by user.
 } sym_table_t;
 
 void sym_table_init(sym_table_t* table);

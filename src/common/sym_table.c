@@ -14,16 +14,14 @@
 static uint32_t _hash_str(const char* str) {
     // TODO: actually make this good. It cannot use strlen, because having a loop in this would be slow.
     DEBUG_ASSERT(str, "str is nullptr");
-    uint32_t hash = str[0] << 4;
-    if (str[1]) {
-        hash |= str[1];
-    }
+    uint32_t hash = str[0];
     return hash;
 }
 
 void sym_table_init(sym_table_t* table) {
     arena_init(&table->arena, TABLE_ARENA_CAPACITY);
     sym_table_clear(table);
+    table->parent = NULL;
 }
 
 void sym_table_insert(sym_table_t* table, const char* key, void* data) {
@@ -64,6 +62,9 @@ void* sym_table_get(const sym_table_t* table, const char* key) {
     for (size_t i = 0; i < IterLimit; i++) {
         // Index doesn't exist
         if (!sym->key) {
+            if (table->parent) {
+                return sym_table_get(table->parent, key);
+            }
             return NULL;
         }
 

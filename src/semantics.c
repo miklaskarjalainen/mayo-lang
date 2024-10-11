@@ -53,13 +53,12 @@ static const datatype_t* _analyze_expression(const global_scope_t* global, const
         }
 
         case AST_GET_VARIABLE: {
-            ast_node_t* var_decl = sym_table_get(variables, expr->data.literal);
+            ast_variable_declaration_t* var_decl = sym_table_get(variables, expr->data.literal);
             if (!var_decl) {
                 ANALYZER_ERROR(expr->position, "No variable called '%s' exists, used in expression!", expr->data.literal);
             }
 
-            DEBUG_ASSERT(var_decl->kind == AST_VARIABLE_DECLARATION, "?");
-            return &var_decl->data.variable_declaration.type;
+            return &var_decl->type;
         }
 
         case AST_FUNCTION_CALL: {
@@ -113,7 +112,7 @@ static void _analyze_scoped_node(ast_node_t* node, global_scope_t* global, sym_t
 
             // Already used?
             {
-                ast_node_t* var_decl = sym_table_get(variables, VarName);
+                ast_variable_declaration_t* var_decl = sym_table_get(variables, VarName);
                 if (var_decl){
                     ANALYZER_ERROR(node->position, "Variable called '%s' is already defined!", VarName);
                 }
@@ -141,7 +140,7 @@ static void _analyze_scoped_node(ast_node_t* node, global_scope_t* global, sym_t
                 ANALYZER_ERROR(node->position, "Type mismatch between declaration and expression!");
             }
 
-            sym_table_insert(variables, VarName,node);
+            sym_table_insert(variables, VarName, &node->data.variable_declaration);
             break;
         }
 
@@ -149,9 +148,21 @@ static void _analyze_scoped_node(ast_node_t* node, global_scope_t* global, sym_t
             // expr
             _analyze_expression(global, variables, node->data.if_statement.expr);
 
+            sym_table_t if_scope = { 0 };
+            sym_table_init(&if_scope);
+            if_scope.parent = variables;
+
             // TODO: SCOPES
-            CALL_ON_BODY(_analyze_scoped_node, node->data.if_statement.body, global, variables);
-            CALL_ON_BODY(_analyze_scoped_node, node->data.if_statement.else_body, global, variables);
+            CALL_ON_BODY(_analyze_scoped_node, node->data.if_statement.body, global, &if_scope);
+            sym_table_clear(&if_scope);
+            CALL_ON_BODY(_analyze_scoped_node, node->data.if_statement.else_body, global, &if_scope);
+
+            sym_table_cleanup(&if_scope);
+            break;
+        }
+
+        case AST_RETURN: {
+            _analyze_expression(global, variables, node->data.expr);
             break;
         }
 
