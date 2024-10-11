@@ -268,6 +268,11 @@ static void print_ast_constant(const ast_node_t* node, size_t depth) {
     printf("\n");
 }
 
+static void print_return(const ast_node_t* node, size_t depth) {
+    AST_PRINT_SETUP_NO_ADDITIONAL(depth, AST_RETURN);
+    print_ast_internal(node->data.expr, depth + 1);
+}
+
 static void print_basic(const ast_node_t* node, size_t depth) {
     AST_PRINT_SETUP(depth, node->kind, " ");
     PRINT_POS(node->position);
@@ -295,6 +300,7 @@ static void print_ast_internal(const ast_node_t* node, size_t depth) {
         case AST_IF_STATEMENT            : print_ast_if_statement        (&node->data.if_statement, depth); break;
         case AST_UNARY_OP                : print_ast_unary_op            (&node->data.unary_op, depth); break;
         case AST_BINARY_OP               : print_ast_binary_op           (&node->data.binary_op, depth); break;
+        case AST_RETURN                  : print_return(node, depth); break;
 
         
         /* generic */
@@ -304,7 +310,6 @@ static void print_ast_internal(const ast_node_t* node, size_t depth) {
 
         /* basic */
         case AST_BREAK   : print_basic(node, depth); break;
-        case AST_RETURN  : print_basic(node, depth); break;
         case AST_CONTINUE: print_basic(node, depth); break;
 
         default: {
