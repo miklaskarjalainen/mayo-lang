@@ -104,6 +104,7 @@ void core_type_print(const struct variant_t* variant) {
             break;
         }
 
+        case CORETYPE_I32:
         case CORETYPE_I64: {
             printf(STDOUT_RED "%li" STDOUT_RESET, variant->value.signed_integer);
             break;
@@ -114,6 +115,7 @@ void core_type_print(const struct variant_t* variant) {
         }
 
         
+        case CORETYPE_F32:
         case CORETYPE_F64: {
             printf(STDOUT_RED "%f" STDOUT_RESET, variant->value.real);
             break;

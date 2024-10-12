@@ -139,14 +139,14 @@ static void lexer_flush(lexer_t* lexer) {
     //@TODO: Postfixes like "0u64", "10.0f32" 
     else if (is_integer(lexer->word.chars)) {
         tk.kind = TOK_CONST_VALUE;
-        tk.variant = variant_core(CORETYPE_I64);
+        tk.variant = variant_core(CORETYPE_I32);
         tk.variant.value.boolean = true;
         tk.variant.value.signed_integer = atoi(lexer->word.chars);
         arrpush(lexer->tokens, tk);
     }
     else if (is_floating_point(lexer->word.chars)) {
         tk.kind = TOK_CONST_VALUE;
-        tk.variant = variant_core(CORETYPE_F64);
+        tk.variant = variant_core(CORETYPE_F32);
         tk.variant.value.real = strtod(lexer->word.chars, NULL);
         arrpush(lexer->tokens, tk);
     }
