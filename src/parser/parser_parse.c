@@ -183,7 +183,8 @@ ast_node_t* parse_variable_declaration(parser_t* parser) {
     */
     DEBUG_ASSERT(parser_peek_behind(parser).kind == TOK_KEYWORD_LET, "?");
 
-    const variant_t Var = parser_eat_expect(parser, TOK_IDENTIFIER).variant;
+    const token_t IdentifierTok = parser_eat_expect(parser, TOK_IDENTIFIER); 
+    const variant_t Var = IdentifierTok.variant;
     parser_eat_expect(parser, TOK_COLON);
     const datatype_t DataType = parse_eat_datatype(parser);
     parser_eat_expect(parser, TOK_EQUALS);
@@ -196,6 +197,7 @@ ast_node_t* parse_variable_declaration(parser_t* parser) {
     out->data.variable_declaration.name = variant_get_cstr(&Var);
     out->data.variable_declaration.type = DataType;
     out->data.variable_declaration.expr = expr;
+    out->position = IdentifierTok.position;
     return out;
 }
 
@@ -211,7 +213,7 @@ static ast_node_t* parse_function_declaration(parser_t* parser) {
     const token_t FunctionName = parser_eat_expect(parser, TOK_IDENTIFIER);
     parser_eat_expect(parser, TOK_PAREN_OPEN);
     
-    ast_variable_declaration_t* args = NULL;
+    ast_node_t* args = NULL;
     while (!parser_eat_if(parser, TOK_PAREN_CLOSE)) {
         /*
             Argument syntax: (disallows trailing commas)
@@ -223,11 +225,16 @@ static ast_node_t* parse_function_declaration(parser_t* parser) {
         datatype_t type = parse_eat_datatype(parser);
 
         /* push arg */
-        ast_variable_declaration_t arg = { 
+        ast_node_t arg = { 
+            .kind = AST_VARIABLE_DECLARATION,
+            .position = IdentifierTok.position
+        };
+        arg.data.variable_declaration = (ast_variable_declaration_t) { 
             .name = Identifier,
             .type = type,
             .expr = NULL
         };
+
         arrpush(args, arg);
 
         /* continue? */

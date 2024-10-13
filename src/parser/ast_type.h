@@ -51,7 +51,7 @@ typedef struct ast_field_initializer_t {
 
 typedef struct ast_function_declaration_t {
     const char* name;
-    ast_variable_declaration_t* args;
+    struct ast_node_t* args;
     datatype_t return_type;
     struct ast_node_t** body;
 } ast_function_declaration_t;

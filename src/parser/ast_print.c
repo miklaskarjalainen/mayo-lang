@@ -165,7 +165,7 @@ static void print_ast_function_declaration(const ast_function_declaration_t* fun
         if (i != 0) {
             printf(", ");
         }
-        const ast_variable_declaration_t* Arg = &func_decl->args[i];
+        const ast_variable_declaration_t* Arg = &func_decl->args[i].data.variable_declaration;
         printf("%s: ", Arg->name);
         datatype_print(&Arg->type);
     }

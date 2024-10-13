@@ -112,7 +112,7 @@ static void _analyze_scoped_node(ast_node_t* node, global_scope_t* global, sym_t
 
             // Already used?
             {
-                ast_variable_declaration_t* var_decl = sym_table_get(variables, VarName);
+                ast_node_t* var_decl = sym_table_get(variables, VarName);
                 if (var_decl){
                     ANALYZER_ERROR(node->position, "Variable called '%s' is already defined!", VarName);
                 }
@@ -127,17 +127,19 @@ static void _analyze_scoped_node(ast_node_t* node, global_scope_t* global, sym_t
             }
 
             // Get type of expression
-            const datatype_t* ExprType = _analyze_expression(global, variables, node->data.variable_declaration.expr);
-            
-            // @FIXME: HACK to make i64 types work with i32 declarations. Do actual casts.
-            if (
-                !datatype_cmp(VarType, ExprType) &&
-                !(
-                    VarType->kind == DATATYPE_CORE_TYPE && ExprType->kind == DATATYPE_CORE_TYPE &&
-                    VarType->data.builtin == CORETYPE_I32 && ExprType->data.builtin == CORETYPE_I64 
-                )
-            ) {
-                ANALYZER_ERROR(node->position, "Type mismatch between declaration and expression!");
+            if (node->data.variable_declaration.expr) {
+                const datatype_t* ExprType = _analyze_expression(global, variables, node->data.variable_declaration.expr);
+                
+                // @FIXME: HACK to make i64 types work with i32 declarations. Do actual casts.
+                if (
+                    !datatype_cmp(VarType, ExprType) &&
+                    !(
+                        VarType->kind == DATATYPE_CORE_TYPE && ExprType->kind == DATATYPE_CORE_TYPE &&
+                        VarType->data.builtin == CORETYPE_I32 && ExprType->data.builtin == CORETYPE_I64 
+                    )
+                ) {
+                    ANALYZER_ERROR(node->position, "Type mismatch between declaration and expression!");
+                }
             }
 
             sym_table_insert(variables, VarName, &node->data.variable_declaration);
@@ -202,7 +204,6 @@ static void _analyze_global_node(ast_node_t* node, global_scope_t* global) {
                 const datatype_t* UnderlyingType = datatype_underlying_type(VarType);
                 ANALYZER_ERROR(node->position, "In function '%s' return type '%s' is not defined!",  FnName, UnderlyingType->data.typename);
             }
-            sym_table_insert(&global->functions, node->data.function_declaration.name, node);
 
             // Main specific
             if (strcmp(FnName, "main") == 0) {
@@ -210,17 +211,21 @@ static void _analyze_global_node(ast_node_t* node, global_scope_t* global) {
                     ANALYZER_ERROR(node->position, "The main function can only return 'i32'");
                 }
             }
-
-            // Analyze body
-            sym_table_t variables;
-            sym_table_init(&variables);
+            sym_table_insert(&global->functions, node->data.function_declaration.name, node);
+            
+            // Check parameters & Arguments to the function's scope
+            sym_table_t fn_scope;
+            sym_table_init(&fn_scope);
             const size_t Size = arrlenu(node->data.function_declaration.args);
             for (size_t arg = 0; arg < Size; arg++) {
-                const ast_variable_declaration_t* Argument = &node->data.function_declaration.args[arg]; 
-                sym_table_insert(&variables, Argument->name, (void*)Argument);
+                ast_node_t* argument = &node->data.function_declaration.args[arg]; 
+                _analyze_scoped_node(argument, global, &fn_scope);
+                sym_table_insert(&fn_scope, argument->data.variable_declaration.name, (void*)argument);
             }
-            CALL_ON_BODY(_analyze_scoped_node, node->data.function_declaration.body, global, &variables);
-            sym_table_cleanup(&variables);
+
+            // Analyze body
+            CALL_ON_BODY(_analyze_scoped_node, node->data.function_declaration.body, global, &fn_scope);
+            sym_table_cleanup(&fn_scope);
             break;
         }
 
