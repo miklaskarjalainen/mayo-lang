@@ -261,6 +261,7 @@ static void print_ast_literal(const ast_node_t* node, size_t depth) {
     printf("\n");
 }
 
+/*
 static void print_ast_constant(const ast_node_t* node, size_t depth) {
     AST_PRINT_SETUP(depth, node->kind, "<");
     variant_print(&node->data.constant);
@@ -268,6 +269,7 @@ static void print_ast_constant(const ast_node_t* node, size_t depth) {
     PRINT_POS(node->position);
     printf("\n");
 }
+*/
 
 static void print_return(const ast_node_t* node, size_t depth) {
     AST_PRINT_SETUP_NO_ADDITIONAL(depth, AST_RETURN);
@@ -314,7 +316,7 @@ static void print_ast_internal(const ast_node_t* node, size_t depth) {
         case AST_IMPORT      : print_ast_literal(node, depth); break;
         case AST_GET_VARIABLE: print_ast_literal(node, depth); break;
         case AST_STRING_LITERAL: print_ast_literal(node, depth); break;
-        case AST_CONST_VALUE : print_ast_constant(node, depth); break;
+        //case AST_CONST_VALUE : print_ast_constant(node, depth); break;
         case AST_INTEGER_LITERAL : print_integer_literal(node, depth); break;
 
         /* basic */

@@ -120,12 +120,6 @@ static ast_node_t* ast_parse_primary(parser_t* parser) {
             return ast;
         }
 
-        case TOK_CONST_VALUE: {
-            ast_node_t* ast = ast_arena_new(parser->arena, AST_CONST_VALUE);
-            ast->data.constant = tk.variant;
-            return ast;
-        }
-
         case TOK_IDENTIFIER: {
             /* function call */
             const token_t Peeked = parser_peek(parser);

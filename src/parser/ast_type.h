@@ -94,7 +94,6 @@ typedef struct ast_node_t {
     ast_kind_t kind;
     union {
         /* Generic */
-        variant_t constant;
         const char* literal;
         struct ast_node_t* expr;
         range_t range; // @TODO: proper 'iterator' type.

@@ -86,10 +86,6 @@ static const datatype_t* _analyze_expression(const global_scope_t* global, const
         case AST_INTEGER_LITERAL: {
             return &I32Type;
         };
-        
-        case AST_CONST_VALUE: {
-            return &expr->data.constant.type;
-        }
 
         case AST_GET_VARIABLE: {
             ast_node_t* var_decl = sym_table_get(variables, expr->data.literal);
