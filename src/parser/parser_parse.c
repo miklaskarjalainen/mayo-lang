@@ -355,6 +355,7 @@ ast_node_t* parse_struct_initializer_list(parser_t* parser, const char* type_ide
             init_list: <idf: typename> { [<field>][,]... }
     */
     DEBUG_ASSERT(parser_peek_behind(parser).kind == TOK_IDENTIFIER, "?");
+    const file_position_t Pos = parser_peek_behind(parser).position;
 
     ast_field_initializer_t* fields = NULL;
     parser_eat_expect(parser, TOK_CURLY_OPEN);
@@ -396,6 +397,7 @@ ast_node_t* parse_struct_initializer_list(parser_t* parser, const char* type_ide
     };
     ast_node_t* ast = ast_arena_new(parser->arena, AST_STRUCT_INITIALIZER_LIST);
     ast->data.struct_initializer_list = init_list;
+    ast->position = Pos;
     return ast;
 } 
 

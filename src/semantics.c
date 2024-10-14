@@ -234,15 +234,15 @@ static datatype_t _analyze_expression(const global_scope_t* global, const sym_ta
             if (TargetType.kind == DATATYPE_PRIMITIVE && ExprType.kind == DATATYPE_PRIMITIVE) {
                 // i32 <-> char
                 if (
-                    (strcmp(TargetType.typename, "char") && strcmp(ExprType.typename, "i32")) ||
-                    (strcmp(TargetType.typename, "i32") && strcmp(ExprType.typename, "char"))
+                    (!strcmp(TargetType.typename, "char") && !strcmp(ExprType.typename, "i32")) ||
+                    (!strcmp(TargetType.typename, "i32") && !strcmp(ExprType.typename, "char"))
                     ) {
                     return TargetType;
                 }
                 // i32 <-> i64
                 if (
-                    (strcmp(TargetType.typename, "i64") && strcmp(ExprType.typename, "i32")) ||
-                    (strcmp(TargetType.typename, "i32") && strcmp(ExprType.typename, "i64"))
+                    (!strcmp(TargetType.typename, "i64") && !strcmp(ExprType.typename, "i32")) ||
+                    (!strcmp(TargetType.typename, "i32") && !strcmp(ExprType.typename, "i64"))
                     ) {
                     return TargetType;
                 }
