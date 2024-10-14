@@ -34,7 +34,6 @@ set(SOURCE_FILES
     
     src/semantics.c src/semantics.h
 
-    src/variant/core_type.c src/variant/core_type.h 
     src/variant/variant.c src/variant/variant.h 
 
     src/file_position.c src/file_position.h 
