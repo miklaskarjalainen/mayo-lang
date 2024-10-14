@@ -12,6 +12,7 @@
 #include "semantics.h"
 #include "parser/ast_type.h"
 #include "parser/ast_print.h"
+#include "backend_qbe.h"
 
 #define STB_DS_IMPLEMENTATION
 #include <stb/stb_ds.h>
@@ -78,7 +79,13 @@ int main(int argc, char** argv) {
         PERF_BEGIN(AnalysisBegin);
         semantic_analysis(parser.node_root);
         analysis_duration = PERF_END(AnalysisBegin);
+        
+        // Output qbe
+        FILE* f = fopen("output.ssa", "w");
+        generate_qbe(f, parser.node_root);
+        fclose(f);
     }
+
 
     parser_cleanup(&parser);
     lexer_cleanup(&lexer); 
