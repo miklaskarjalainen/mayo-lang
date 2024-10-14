@@ -3,6 +3,7 @@
 
 #include "semantics.h"
 #include "parser.h"
+#include "string.h"
 #include "variant/variant.h"
 
 #include "common/arena.h"
@@ -23,7 +24,7 @@ typedef struct global_scope_t {
     sym_table_t functions, structs;
 } global_scope_t;
 
-static const datatype_t* _analyze_expression(const global_scope_t* global, const sym_table_t* variables, ast_node_t* expr);
+static datatype_t _analyze_expression(const global_scope_t* global, const sym_table_t* variables, ast_node_t* expr);
 
 static bool _analyze_is_valid_type(const global_scope_t* global, const datatype_t* type) {
     const datatype_t* TrueType = datatype_underlying_type(type);
@@ -33,6 +34,9 @@ static bool _analyze_is_valid_type(const global_scope_t* global, const datatype_
         return true;
     }
     else if (strcmp(TrueType->typename, "bool") == 0) {
+        return true;
+    }
+    else if (strcmp(TrueType->typename, "char") == 0) {
         return true;
     }
 
@@ -62,26 +66,37 @@ static void _analyze_func_call(const global_scope_t* global, const sym_table_t* 
         ast_variable_declaration_t* argument_decl = &FuncDecl->data.function_declaration.args[i].data.variable_declaration;
         ast_node_t* argument_expr = FuncCall->args[i];
         
-        const datatype_t* ExprType = _analyze_expression(global, variables, argument_expr);
-        if (!datatype_cmp(ExprType, &argument_decl->type)) {
+        datatype_t ExprType = _analyze_expression(global, variables, argument_expr);
+        if (!datatype_cmp(&ExprType, &argument_decl->type)) {
             ANALYZER_ERROR(node->position, "passed argument does not match expected type for argument!");
         }
     }
 }
 
-static const datatype_t* _analyze_expression(const global_scope_t* global, const sym_table_t* variables, ast_node_t* expr) {
+static datatype_t _analyze_expression(const global_scope_t* global, const sym_table_t* variables, ast_node_t* expr) {
     static const datatype_t BoolType = {
         .kind = DATATYPE_PRIMITIVE,
         .typename = "bool"
     };
-    static const datatype_t I32Type = {
+    static const datatype_t CharType = {
         .kind = DATATYPE_PRIMITIVE,
-        .typename = "i32"
+        .typename = "char"
     };
 
     switch (expr->kind) {
         case AST_INTEGER_LITERAL: {
-            return &I32Type;
+            return (datatype_t) {
+                .kind = DATATYPE_PRIMITIVE,
+                .typename = "i32"
+            };
+        };
+
+        case AST_STRING_LITERAL: {
+            return (datatype_t) {
+                .kind = DATATYPE_ARRAY,
+                .base = &CharType,
+                .array_size = strlen(expr->data.literal)+1
+            };
         };
 
         case AST_GET_VARIABLE: {
@@ -90,33 +105,82 @@ static const datatype_t* _analyze_expression(const global_scope_t* global, const
                 ANALYZER_ERROR(expr->position, "No variable called '%s' exists, used in expression!", expr->data.literal);
             }
 
-            return &var_decl->data.variable_declaration.type;
+            return var_decl->data.variable_declaration.type;
         }
 
         case AST_FUNCTION_CALL: {
             _analyze_func_call(global, variables, expr);
             ast_node_t* func_decl = sym_table_get(&global->functions, expr->data.literal);
             DEBUG_ASSERT(func_decl->kind == AST_FUNCTION_DECLARATION, "?");
-            return &func_decl->data.function_declaration.return_type;
+            return func_decl->data.function_declaration.return_type;
         }
 
         case AST_BINARY_OP: {
-            const datatype_t* Lhs = _analyze_expression(global, variables, expr->data.binary_op.left);
-            const datatype_t* Rhs = _analyze_expression(global, variables, expr->data.binary_op.right);
-            if (!datatype_cmp(Lhs, Rhs)) {
+            const datatype_t Lhs = _analyze_expression(global, variables, expr->data.binary_op.left);
+            const datatype_t Rhs = _analyze_expression(global, variables, expr->data.binary_op.right);
+            if (!datatype_cmp(&Lhs, &Rhs)) {
                 ANALYZER_ERROR(expr->position, "Type mismatch!");
             }
 
             switch (expr->data.binary_op.operation) {
                 case BINARY_OP_NOT_EQUAL:
                 case BINARY_OP_EQUAL: {
-                    return &BoolType;
+                    return BoolType;
                 }
 
                 default: {
                     return Lhs;
                 }
             }
+        }
+
+        case AST_STRUCT_INITIALIZER_LIST: {
+            const ast_struct_initializer_list_t* Initializer = &expr->data.struct_initializer_list; 
+            
+            // Basic type checking.
+            const datatype_t Type = {
+                .kind = DATATYPE_PRIMITIVE,
+                .typename = Initializer->name,
+            };
+            if (!_analyze_is_valid_type(global, &Type)) {
+                ANALYZER_ERROR(expr->position, "Invalid type name for struct initializer");
+            }
+            const ast_node_t* StructDecl = sym_table_get(&global->structs, Initializer->name);
+            DEBUG_ASSERT(StructDecl->kind == AST_STRUCT_DECLARATION, "?");
+
+            // Check that the initializer initializes actual members and do typechecking on the expressions.
+            const size_t InitializerCount = arrlenu(Initializer->fields);
+            const size_t StructMemberCount = arrlenu(StructDecl->data.struct_declaration.members);
+            for (size_t i = 0; i < InitializerCount; i++) {
+                const char* InitializerField = Initializer->fields[i].name;
+
+                for (size_t j = 0; j < StructMemberCount; j++) {
+                    // Does this initializer match a member?
+                    const char* StructMember = StructDecl->data.struct_declaration.members[i].name;
+                    if (strcmp(InitializerField, StructMember)) {
+                        if (j == StructMemberCount-1) {
+                            ANALYZER_ERROR(expr->position, "Struct does not contain a field called '%s'", InitializerField);
+                        }
+                        continue;
+                    }
+
+                    // Matching field
+                    const datatype_t ExprType = _analyze_expression(global, variables, Initializer->fields[i].expr);
+                    const datatype_t* MemberType = &StructDecl->data.struct_declaration.members[i].type;
+
+                    if (!datatype_cmp(MemberType, &ExprType)) {
+                        ANALYZER_ERROR(Initializer->fields[i].expr->position, "expression not matching type! expected %s!", datatype_to_str(MemberType));
+                    }
+
+                    break;
+                }
+            }
+
+            if (InitializerCount != StructMemberCount) {
+                ANALYZER_ERROR(expr->position, "Initializer list only initializes %zu of the %zu members!", InitializerCount, StructMemberCount);
+            }
+
+            return Type;
         }
 
         case AST_ARRAY_INITIALIZER_LIST: {
@@ -128,8 +192,8 @@ static const datatype_t* _analyze_expression(const global_scope_t* global, const
             PANIC("not implemented for type %u", (uint32_t)expr->kind);
         }
     }
-    
-    return NULL;
+
+    return (datatype_t){ 0 };
 }
 
 static void _analyze_scoped_node(ast_node_t* node, global_scope_t* global, sym_table_t* variables) {
@@ -161,10 +225,10 @@ static void _analyze_scoped_node(ast_node_t* node, global_scope_t* global, sym_t
 
             // Get type of expression
             if (node->data.variable_declaration.expr) {
-                const datatype_t* ExprType = _analyze_expression(global, variables, node->data.variable_declaration.expr);
+                datatype_t ExprType = _analyze_expression(global, variables, node->data.variable_declaration.expr);
                 
-                if (!datatype_cmp(VarType, ExprType)) {
-                    ANALYZER_ERROR(node->position, "Type mismatch between declaration and expression!");
+                if (!datatype_cmp(VarType, &ExprType)) {
+                    ANALYZER_ERROR(node->data.variable_declaration.expr->position, "Expression not expected type %s!", datatype_to_str(VarType));
                 }
             }
 
