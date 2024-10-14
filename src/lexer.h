@@ -7,6 +7,8 @@
 #include "common/string.h"
 #include "file_position.h"
 
+struct arena_t;
+
 typedef enum comment_type {
         COMMENT_NONE = 0, 
         COMMENT_SINGLELINE, // singleline comment
@@ -17,6 +19,7 @@ typedef struct lexer_t {
     string_t word;
     comment_type is_commented;
     struct token_t* tokens;
+    struct arena_t* arena;
 
     /* Content */
     char* filepath;
@@ -24,15 +27,14 @@ typedef struct lexer_t {
     size_t content_length;
     char* content;
 
-
     /* For Errors */
     size_t line, column;
     file_position_t word_begin; // where the current word started.
 } lexer_t;
 
 /* Creation & Deletion */
-void lexer_init(lexer_t* lexer, const char* fpath);
-void lexer_str(lexer_t* lexer, char* content, const char* fpath); // takes ownership of content, fpath is for error messages, pass empty if not needed string!
+void lexer_init(lexer_t* lexer, struct arena_t* arena, const char* fpath);
+void lexer_str(lexer_t* lexer, struct arena_t* arena, char* content, const char* fpath); // takes ownership of content, fpath is for error messages, pass empty if not needed string!
 void lexer_cleanup(lexer_t* lexer);
 
 /* Methods */

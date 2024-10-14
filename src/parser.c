@@ -1,6 +1,7 @@
 #include <stb/stb_ds.h>
 #include <stdio.h>
 
+#include "common/arena.h"
 #include "common/error.h"
 #include "common/utils.h"
 #include "lexer/lexer_token.h"
@@ -10,18 +11,10 @@
 #include "lexer.h"
 #include "parser.h"
 
-// Use "optimal" size for debug builds. Just so we can test more of our arena implementation.
-#ifdef NDEBUG
-#define PARSER_ARENA_CAPACITY 4096
-#else
-#define PARSER_ARENA_CAPACITY sizeof(ast_node_t) * 2
-#endif
-
-parser_t parser_new(lexer_t* lexer) {
+parser_t parser_new(arena_t* arena, lexer_t* lexer) {
     RUNTIME_ASSERT(lexer != NULL, "lexer is null");
 
-    arena_t arena = arena_new(PARSER_ARENA_CAPACITY);
-    ast_node_t* root = arena_alloc_zeroed(&arena, sizeof(ast_node_t));
+    ast_node_t* root = arena_alloc_zeroed(arena, sizeof(ast_node_t));
     root->kind = AST_TRANSLATION_UNIT;
     root->data.translation_unit.body = NULL;
 
@@ -35,7 +28,6 @@ parser_t parser_new(lexer_t* lexer) {
 
 void parser_cleanup(parser_t* parser) {
     ast_free_tree(parser->node_root);
-    arena_free(&parser->arena);
 }
 
 void parser_parse(parser_t* parser) {

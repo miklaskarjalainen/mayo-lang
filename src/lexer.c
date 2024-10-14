@@ -5,6 +5,7 @@
 
 #include <stb/stb_ds.h>
 
+#include "common/arena.h"
 #include "common/error.h"
 #include "common/string.h"
 #include "common/utils.h"
@@ -21,27 +22,27 @@
         exit(1);                                \
     } while(0)
 
-void lexer_init(lexer_t* lexer, const char* fpath) {
+void lexer_init(lexer_t* lexer, arena_t* arena, const char* fpath) {
     //
     char* content = read_file_contents(fpath);
     RUNTIME_ASSERT(content != NULL, "Could not read file input :^(");
-    lexer_str(lexer, content, fpath);
+    lexer_str(lexer, arena, content, fpath);
 }
 
-void lexer_str(lexer_t* l, char* content, const char* fpath) {
+void lexer_str(lexer_t* l, arena_t* arena, char* content, const char* fpath) {
     RUNTIME_ASSERT(content != NULL, "content is NULL");
 
     // copy filepath
     char* filepath_copied = NULL;
     if (fpath != NULL) {
         const size_t Size = strlen(fpath) + 1;
-        RUNTIME_ASSERT(Size > 0, "fpath size is 0! Use 'NULL' instead to pass an empty fpath");
-        filepath_copied = calloc(Size, sizeof(char));
+        filepath_copied = arena_alloc_zeroed(arena, Size);
         RUNTIME_ASSERT(filepath_copied != NULL, "Could not create memory to store the filepath.");
         strcpy(filepath_copied, fpath);
     }
     
     // Initialize members
+    l->arena = arena;
     l->tokens = NULL;
     l->word = string_with_capacity(0xFF);
     l->filepath = filepath_copied;
@@ -65,9 +66,6 @@ void lexer_cleanup(lexer_t* lexer) {
 
     // Delete everything else
     string_delete(&lexer->word); 
-    if (lexer->filepath != NULL) {
-        free(lexer->filepath); 
-    }
     if (lexer->content != NULL) {
         free(lexer->content); 
     }

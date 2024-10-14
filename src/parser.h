@@ -3,19 +3,19 @@
 
 #include "parser/ast_type.h"
 #include "lexer/lexer_token.h"
-#include "common/arena.h"
 
 struct lexer_t;
+struct arena_t;
 
 typedef struct parser_t {
     ast_node_t* node_root;
     size_t token_index;
     struct lexer_t* lexer;
 
-    arena_t arena;
+    struct arena_t* arena;
 } parser_t;
 
-parser_t parser_new(struct lexer_t* lexer);
+parser_t parser_new(struct arena_t* arena, struct lexer_t* lexer);
 void parser_cleanup(parser_t* parser);
 void parser_parse(parser_t* parser);
 
