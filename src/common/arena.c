@@ -30,7 +30,7 @@ void arena_init(arena_t* arena, size_t size) {
     {
         arena_t* child = arena_get_child(arena);
         child->capacity = 0;
-        child->size = sizeof(arena_t);
+        child->size = 0;
         child->data = NULL;
     }
 
@@ -86,7 +86,6 @@ void* arena_alloc(arena_t* arena, size_t size) {
 
 void* arena_alloc_zeroed(arena_t* arena, size_t size) {
     void* data = arena_alloc(arena, size);
-    DEBUG_ASSERT(data, "could not allocate memory?");
     memset(data, 0, size);
     return data;
 }
