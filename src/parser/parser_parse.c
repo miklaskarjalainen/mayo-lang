@@ -178,18 +178,7 @@ ast_node_t* parse_variable_declaration(parser_t* parser) {
     return out;
 }
 
-static ast_node_t* parse_function_declaration(parser_t* parser) {
-    /* 
-        Syntax:
-            "fn <identifier>(<arg1-idf>: <arg1-type>, ...) -> <return-type> { <body> }"
-    */
-    DEBUG_ASSERT(parser_peek_behind(parser).kind == TOK_KEYWORD_FN, "?");
-
-
-    /* Definition */
-    const token_t FunctionName = parser_eat_expect(parser, TOK_IDENTIFIER);
-    parser_eat_expect(parser, TOK_PAREN_OPEN);
-    
+static ast_node_t* parse_function_parameters(parser_t* parser) {
     ast_node_t* args = NULL;
     while (!parser_eat_if(parser, TOK_PAREN_CLOSE)) {
         /*
@@ -230,22 +219,67 @@ static ast_node_t* parse_function_declaration(parser_t* parser) {
         else {
             PARSER_ERROR(tok.position, "unexpected token %s", token_kind_to_str(tok.kind));
         }
-    }    
+    }
+    return args;
+}
+
+static ast_node_t* parse_extern_function_declaration(parser_t* parser) {
+    /* 
+        Syntax:
+            "extern fn <identifier>(<arg1-idf>: <arg1-type>, ...) -> <return-type>;"
+    */
+    DEBUG_ASSERT(parser_peek_behind(parser).kind == TOK_KEYWORD_EXTERN, "?");
+    parser_eat_expect(parser, TOK_KEYWORD_FN);
+
+    // Definition
+    const token_t FunctionName = parser_eat_expect(parser, TOK_IDENTIFIER);
+    parser_eat_expect(parser, TOK_PAREN_OPEN);
+    ast_node_t* args = parse_function_parameters(parser);
     parser_eat_expect(parser, TOK_ARROW);
     const datatype_t ReturnType = parse_eat_datatype(parser);
+    parser_eat_expect(parser, TOK_SEMICOLON);
 
-    /* Body */
+    // Construction
+    ast_node_t* ast = ast_arena_new(parser->arena, AST_FUNCTION_DECLARATION);
+    ast->position = FunctionName.position;
+    ast->data.function_declaration = (ast_function_declaration_t) {
+        .name = FunctionName.data.str,
+        .args = args,
+        .return_type = ReturnType,
+        .body = NULL,
+        .external = true
+    };
+    return ast;
+}
+
+static ast_node_t* parse_function_declaration(parser_t* parser) {
+    /* 
+        Syntax:
+            "fn <identifier>(<arg1-idf>: <arg1-type>, ...) -> <return-type> { <body> }"
+    */
+    DEBUG_ASSERT(parser_peek_behind(parser).kind == TOK_KEYWORD_FN, "?");
+
+
+    // Definition
+    const token_t FunctionName = parser_eat_expect(parser, TOK_IDENTIFIER);
+    parser_eat_expect(parser, TOK_PAREN_OPEN);
+    ast_node_t* args = parse_function_parameters(parser);
+    parser_eat_expect(parser, TOK_ARROW);
+    const datatype_t ReturnType = parse_eat_datatype(parser);
+    
+    // Body
     ast_node_t** body = parse_body(parser);
 
-    ast_function_declaration_t func_decl = { 0 };
-    func_decl.name = FunctionName.data.str;
-    func_decl.args = args;
-    func_decl.return_type = ReturnType;
-    func_decl.body = body;
-
+    // Construction
     ast_node_t* ast = ast_arena_new(parser->arena, AST_FUNCTION_DECLARATION);
-    ast->data.function_declaration = func_decl;
     ast->position = FunctionName.position;
+    ast->data.function_declaration = (ast_function_declaration_t) {
+        .name = FunctionName.data.str,
+        .args = args,
+        .return_type = ReturnType,
+        .body = body,
+        .external = false
+    };
     return ast;
 }
 
@@ -506,6 +540,11 @@ ast_node_t** parse_global_scope(parser_t* parser) {
             }
             case TOK_KEYWORD_LET: {
                 ast_node_t* ast = parse_variable_declaration(parser);
+                arrpush(global_scope, ast);
+                break;
+            }
+            case TOK_KEYWORD_EXTERN: {
+                ast_node_t* ast = parse_extern_function_declaration(parser);
                 arrpush(global_scope, ast);
                 break;
             }

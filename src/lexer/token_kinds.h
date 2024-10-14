@@ -66,6 +66,7 @@ _DEF(TOK_KEYWORD_IN, "in"),
 _DEF(TOK_KEYWORD_CONST, "const"),
 _DEF(TOK_KEYWORD_LET, "let"),
 _DEF(TOK_KEYWORD_STRUCT, "struct"),
+_DEF(TOK_KEYWORD_EXTERN, "extern"),
 #endif
 
 #if defined(_TK_VALUES)

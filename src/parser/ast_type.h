@@ -54,6 +54,7 @@ typedef struct ast_function_declaration_t {
     struct ast_node_t* args;
     datatype_t return_type;
     struct ast_node_t** body;
+    bool external;
 } ast_function_declaration_t;
 
 typedef struct ast_struct_declaration_t {
