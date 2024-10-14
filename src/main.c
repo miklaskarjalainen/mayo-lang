@@ -4,6 +4,7 @@
 #include "common/error.h"
 #include "common/string.h"
 #include "common/sym_table.h"
+#include "common/stats.h"
 #include "common/utils.h"
 
 #include "lexer.h"
@@ -16,6 +17,14 @@
 #include <stb/stb_ds.h>
 
 jmp_buf g_Jumpluff;
+
+// Use "optimal" size for debug builds. Just so we can test more of our arena implementation.
+#ifdef NDEBUG
+#define ARENA_CAPACITY 4096
+#else
+#define ARENA_CAPACITY sizeof(ast_node_t) * 2
+#endif
+
 
 int main(int argc, char** argv) {
     int exit_code = SETJUMP();
@@ -35,9 +44,12 @@ int main(int argc, char** argv) {
     const char* Path = g_Params.input_files[0];
 
     // Initialize lexer & parser
+    arena_t arena;
+    arena_init(&arena, ARENA_CAPACITY);
+
     lexer_t lexer = { 0 };
-    lexer_init(&lexer, Path);
-    parser_t parser = parser_new(&lexer);
+    lexer_init(&lexer, &arena, Path);
+    parser_t parser = parser_new(&arena, &lexer);
 
     exit_code = SETJUMP();
     if (!exit_code) {
@@ -56,6 +68,7 @@ int main(int argc, char** argv) {
 
     parser_cleanup(&parser);
     lexer_cleanup(&lexer); 
+    arena_free(&arena);
 clean_params:;
     cli_delete_params(&g_Params);
     
