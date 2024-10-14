@@ -18,7 +18,6 @@
 jmp_buf g_Jumpluff;
 
 int main(int argc, char** argv) {
-    // To simplify to code flow here, lexer should able to be constructed without a path, and make it allocated on stack?
     int exit_code = SETJUMP();
     if (!exit_code) {
         g_Params = cli_parse(argc, argv);
@@ -36,17 +35,17 @@ int main(int argc, char** argv) {
     const char* Path = g_Params.input_files[0];
 
     // Initialize lexer & parser
-    lexer_t* lexer = lexer_new(Path);
-    RUNTIME_ASSERT(lexer != NULL, "Could not create lexer! :^(");
-    parser_t parser = parser_new(lexer);
+    lexer_t lexer = { 0 };
+    lexer_init(&lexer, Path);
+    parser_t parser = parser_new(&lexer);
 
     exit_code = SETJUMP();
     if (!exit_code) {
         // Lex
-        lexer_lex(lexer);
-        const size_t TkCount = arrlenu(lexer->tokens);
+        lexer_lex(&lexer);
+        const size_t TkCount = arrlenu(lexer.tokens);
         for (size_t tk_idx = 0; tk_idx < TkCount; tk_idx++) {
-            token_print_pretty(&lexer->tokens[tk_idx]);
+            token_print_pretty(&lexer.tokens[tk_idx]);
         }
 
         // Parsing
@@ -56,10 +55,11 @@ int main(int argc, char** argv) {
     }
 
     parser_cleanup(&parser);
-    lexer_delete(lexer); 
+    lexer_cleanup(&lexer); 
 clean_params:;
     cli_delete_params(&g_Params);
     
+
     return exit_code;
 } 
 

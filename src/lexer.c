@@ -21,21 +21,15 @@
         exit(1);                                \
     } while(0)
 
-lexer_t* lexer_new(const char* fpath) {
+void lexer_init(lexer_t* lexer, const char* fpath) {
     //
     char* content = read_file_contents(fpath);
     RUNTIME_ASSERT(content != NULL, "Could not read file input :^(");
-    return lexer_str(content, fpath);
+    lexer_str(lexer, content, fpath);
 }
 
-lexer_t* lexer_str(char* content, const char* fpath) {
+void lexer_str(lexer_t* l, char* content, const char* fpath) {
     RUNTIME_ASSERT(content != NULL, "content is NULL");
-
-    lexer_t* l = malloc(sizeof(lexer_t));
-    if (l == NULL) {
-        return NULL;
-    }
-    memset((void*)l, 0, sizeof(lexer_t)); 
 
     // copy filepath
     char* filepath_copied = NULL;
@@ -57,10 +51,9 @@ lexer_t* lexer_str(char* content, const char* fpath) {
     l->line = 1;
     l->column = 1;
     l->word_begin = lexer_get_position(l);
-    return l;
 }
 
-void lexer_delete(lexer_t* lexer) {
+void lexer_cleanup(lexer_t* lexer) {
     DEBUG_ASSERT(lexer != NULL, "Trying to delete NULL");
 
     // Delete allocated tokens
@@ -78,7 +71,6 @@ void lexer_delete(lexer_t* lexer) {
     if (lexer->content != NULL) {
         free(lexer->content); 
     }
-    free(lexer);
 }
 
 char lexer_peek_behind(const lexer_t* lexer) {

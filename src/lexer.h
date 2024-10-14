@@ -31,9 +31,9 @@ typedef struct lexer_t {
 } lexer_t;
 
 /* Creation & Deletion */
-lexer_t* lexer_new(const char* fpath);
-lexer_t* lexer_str(char* content, const char* fpath); // takes ownership of content, fpath is for error messages, pass empty if not needed string!
-void lexer_delete(lexer_t* lexer);
+void lexer_init(lexer_t* lexer, const char* fpath);
+void lexer_str(lexer_t* lexer, char* content, const char* fpath); // takes ownership of content, fpath is for error messages, pass empty if not needed string!
+void lexer_cleanup(lexer_t* lexer);
 
 /* Methods */
 file_position_t lexer_get_position(lexer_t* lexer); // get's the current char without popping it
