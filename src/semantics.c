@@ -23,6 +23,8 @@ typedef struct global_scope_t {
     sym_table_t functions, structs;
 } global_scope_t;
 
+static const datatype_t* _analyze_expression(const global_scope_t* global, const sym_table_t* variables, ast_node_t* expr);
+
 static bool _analyze_is_valid_type(const global_scope_t* global, const datatype_t* type) {
     const datatype_t* TrueType = datatype_underlying_type(type);
 
@@ -41,6 +43,35 @@ static bool _analyze_is_valid_type(const global_scope_t* global, const datatype_
     return false;
 }
 
+static void _analyze_func_call(const global_scope_t* global, const sym_table_t* variables, ast_node_t* node) {
+    DEBUG_ASSERT(node->kind == AST_FUNCTION_CALL, "?");
+    const ast_function_call_t* FuncCall = &node->data.function_call;
+            
+    // Func exists?
+    const ast_node_t* FuncDecl = sym_table_get(&global->functions, FuncCall->name);
+    if (!FuncDecl){
+        ANALYZER_ERROR(node->position, "No function called '%s' is exists!", FuncCall->name);
+    }
+
+    // Check that the args match function declaration.
+    const size_t CallArgCount = arrlenu(FuncCall->args);
+    const size_t DeclArgCount = arrlenu(FuncDecl->data.function_declaration.args);
+    
+    if (CallArgCount != DeclArgCount) {
+        ANALYZER_ERROR(node->position, "function takes %zu arguments but %zu were given!", DeclArgCount, CallArgCount);
+    }
+
+    for (size_t i = 0; i < CallArgCount; i++) {
+        ast_variable_declaration_t* argument_decl = &FuncDecl->data.function_declaration.args[i].data.variable_declaration;
+        ast_node_t* argument_expr = FuncCall->args[i];
+        
+        const datatype_t* ExprType = _analyze_expression(global, variables, argument_expr);
+        if (!datatype_cmp(ExprType, &argument_decl->type)) {
+            ANALYZER_ERROR(node->position, "passed argument does not match expected type for argument!");
+        }
+    }
+}
+
 static const datatype_t* _analyze_expression(const global_scope_t* global, const sym_table_t* variables, ast_node_t* expr) {
     static const datatype_t BoolType = {
         .kind = DATATYPE_CORE_TYPE,
@@ -53,22 +84,17 @@ static const datatype_t* _analyze_expression(const global_scope_t* global, const
         }
 
         case AST_GET_VARIABLE: {
-            ast_variable_declaration_t* var_decl = sym_table_get(variables, expr->data.literal);
+            ast_node_t* var_decl = sym_table_get(variables, expr->data.literal);
             if (!var_decl) {
                 ANALYZER_ERROR(expr->position, "No variable called '%s' exists, used in expression!", expr->data.literal);
             }
 
-            return &var_decl->type;
+            return &var_decl->data.variable_declaration.type;
         }
 
         case AST_FUNCTION_CALL: {
-            // TODO: ARGS
-
+            _analyze_func_call(global, variables, expr);
             ast_node_t* func_decl = sym_table_get(&global->functions, expr->data.literal);
-            if (!func_decl) {
-                ANALYZER_ERROR(expr->position, "Function called '%s' does not exists, used in expression!", expr->data.literal);
-            }
-
             DEBUG_ASSERT(func_decl->kind == AST_FUNCTION_DECLARATION, "?");
             return &func_decl->data.function_declaration.return_type;
         }
@@ -142,7 +168,7 @@ static void _analyze_scoped_node(ast_node_t* node, global_scope_t* global, sym_t
                 }
             }
 
-            sym_table_insert(variables, VarName, &node->data.variable_declaration);
+            sym_table_insert(variables, VarName, node);
             break;
         }
 
@@ -154,12 +180,16 @@ static void _analyze_scoped_node(ast_node_t* node, global_scope_t* global, sym_t
             sym_table_init(&if_scope);
             if_scope.parent = variables;
 
-            // TODO: SCOPES
             CALL_ON_BODY(_analyze_scoped_node, node->data.if_statement.body, global, &if_scope);
             sym_table_clear(&if_scope);
             CALL_ON_BODY(_analyze_scoped_node, node->data.if_statement.else_body, global, &if_scope);
 
             sym_table_cleanup(&if_scope);
+            break;
+        }
+
+        case AST_FUNCTION_CALL: {
+            _analyze_func_call(global, variables, node);
             break;
         }
 
