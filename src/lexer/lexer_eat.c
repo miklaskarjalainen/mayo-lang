@@ -1,5 +1,6 @@
 #include <string.h>
 
+#include "../common/arena.h"
 #include "../common/error.h"
 #include "../common/utils.h"
 #include "../compile_error.h"
@@ -142,7 +143,6 @@ token_t lexer_eat_string_literal(lexer_t* lexer) {
         '\n' and '\0' causes an error.
     */
 
-    string_t str = string_new();
     file_position_t startpos = lexer_get_position(lexer);
 
     while (true) {
@@ -153,7 +153,7 @@ token_t lexer_eat_string_literal(lexer_t* lexer) {
             /* Throw error */
             case '\n':
             case '\0': {
-                if (str.length == 0) {
+                if (string_is_empty(&lexer->word)) {
                     RUNTIME_ASSERT(startpos.column > 0, "literal started at column 1?");
                     startpos.length = 1;
                     startpos.column -= 1;
@@ -161,7 +161,7 @@ token_t lexer_eat_string_literal(lexer_t* lexer) {
                     break;
                 }
 
-                startpos.length = str.length;
+                startpos.length = lexer->word.length;
                 LEXER_ERROR(startpos, "string not closed");
                 break;
             }
@@ -169,26 +169,29 @@ token_t lexer_eat_string_literal(lexer_t* lexer) {
             /* Escapes */
             case '\\': {
                 char escaped = lexer_eat_escaped(lexer);
-                string_push(&str, escaped);
+                string_push(&lexer->word, escaped);
                 break;
             }
                 
             default: {
-                string_push(&str, c);
+                string_push(&lexer->word, c);
                 break;
             }
         }
     }
 
-    /*
-    tk.variant = variant_core(CORETYPE_STR);
-    tk.variant.value.literal = str;
-    
-    tk.position = lexer_get_position(lexer);
-    tk.position.length = tk.variant.value.literal.length + 2; // +2 for quotes  
-    tk.position.column -= tk.position.length;
-    */
-    PANIC("String literals are not yet supported! Make them char[]!");
-    token_t tk = token_new(TOK_CONST_VALUE);
+    token_t tk = { .kind = TOK_CONST_STRING, .position = lexer_get_position(lexer) };
+    {
+        const size_t Size = lexer->word.length;
+        char* literal = arena_alloc_zeroed(lexer->arena, Size+1);
+        strncpy(literal, lexer->word.chars, Size);
+
+        tk.data.str = literal;
+        tk.position.length = Size;
+        tk.position.column -= Size+1;
+    }
+
+    string_clear(&lexer->word);
+
     return tk;
 }

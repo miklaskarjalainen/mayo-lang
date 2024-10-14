@@ -18,6 +18,7 @@ typedef struct token_t {
     variant_t variant;
     union {
         int64_t integer;
+        char* str; 
     } data;
     file_position_t position;
 } token_t;

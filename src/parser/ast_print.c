@@ -313,6 +313,7 @@ static void print_ast_internal(const ast_node_t* node, size_t depth) {
         /* generic */
         case AST_IMPORT      : print_ast_literal(node, depth); break;
         case AST_GET_VARIABLE: print_ast_literal(node, depth); break;
+        case AST_STRING_LITERAL: print_ast_literal(node, depth); break;
         case AST_CONST_VALUE : print_ast_constant(node, depth); break;
         case AST_INTEGER_LITERAL : print_integer_literal(node, depth); break;
 
