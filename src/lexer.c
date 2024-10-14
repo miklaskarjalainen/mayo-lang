@@ -262,20 +262,15 @@ void lexer_lex(lexer_t* lexer) {
             arrpush(lexer->tokens, tk);
             continue;
         }
-            /*
         if (c == '\'') {
             lexer_flush(lexer);
-
-            token_t tk = token_new(TOK_CONST_VALUE);
-            tk.variant = variant_core(CORETYPE_CHAR);
-            tk.variant.value.character = lexer_eat_char_literal(lexer);
+            token_t tk = token_new(TOK_CONST_CHAR);
             tk.position = lexer_get_position(lexer);
+            tk.data.c = lexer_eat_char_literal(lexer);
             tk.position.length = 1;  // TODO: symbol length for errors
-            
             arrpush(lexer->tokens, tk);
             continue;
         }
-            */
         if (isspace(c)) {
             lexer_flush(lexer);
             continue;

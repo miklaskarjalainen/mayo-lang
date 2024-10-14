@@ -16,6 +16,7 @@ typedef struct token_t {
     token_kind_t kind;
     union {
         int64_t integer;
+        char c;
         char* str; 
     } data;
     file_position_t position;

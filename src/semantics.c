@@ -84,6 +84,8 @@ static datatype_t _analyze_expression(const global_scope_t* global, const sym_ta
     };
 
     switch (expr->kind) {
+        case AST_CHAR_LITERAL: { return CharType; };
+
         case AST_INTEGER_LITERAL: {
             return (datatype_t) {
                 .kind = DATATYPE_PRIMITIVE,
@@ -184,8 +186,25 @@ static datatype_t _analyze_expression(const global_scope_t* global, const sym_ta
         }
 
         case AST_ARRAY_INITIALIZER_LIST: {
-            UNIMPLEMENTED("No implemented yet, requires a rework of how datatypes work.");
-            break;
+            ast_node_t** initializer_list = expr->data.array_initializer_list.exprs;
+            const size_t InitializerSize = arrlenu(initializer_list);
+            if (InitializerSize == 0) {
+                ANALYZER_ERROR(expr->position, "cannot deduce type from an array which is 0 size");
+            }
+
+            // Get the type of the first initializer.
+            const datatype_t FirstExprType = _analyze_expression(global, variables, initializer_list[0]);
+
+            // And check that every other initializer matches the type of the first.
+            for (size_t i = 1; i < InitializerSize; i++) {
+                const datatype_t ExprType = _analyze_expression(global, variables, initializer_list[i]);
+                if (!datatype_cmp(&FirstExprType, &ExprType)) {
+                    ANALYZER_ERROR(initializer_list[i]->position, "Invalid types used in initializer list!");
+                }
+            }
+
+            UNIMPLEMENTED("does not work yet because the inner type would have to be alloced to heap!");
+            return FirstExprType;
         }
 
         default: {
