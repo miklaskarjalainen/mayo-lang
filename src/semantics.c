@@ -118,11 +118,17 @@ static const datatype_t* _analyze_expression(const global_scope_t* global, const
             }
         }
 
+        case AST_ARRAY_INITIALIZER_LIST: {
+            UNIMPLEMENTED("No implemented yet, requires a rework of how datatypes work.");
+            break;
+        }
+
         default: {
             PANIC("not implemented for type %u", (uint32_t)expr->kind);
         }
     }
     
+    return NULL;
 }
 
 static void _analyze_scoped_node(ast_node_t* node, global_scope_t* global, sym_table_t* variables) {
