@@ -154,6 +154,31 @@ static ast_node_t* parse_if_statement(parser_t* parser) {
     return out;
 }
 
+ast_node_t* parse_cast_statement(parser_t* parser) {
+    /*
+        Syntax:
+            "cast<[type]>([expression])""
+    */
+    DEBUG_ASSERT(parser_peek_behind(parser).kind == TOK_IDENTIFIER, "?");
+    DEBUG_ASSERT(strcmp(parser_peek_behind(parser).data.str, "cast") == 0, "?");
+    const file_position_t Pos = parser_peek_behind(parser).position; 
+
+    parser_eat_expect(parser, TOK_LESS_THAN);
+    datatype_t type = parse_eat_datatype(parser);
+    parser_eat_expect(parser, TOK_GREATER_THAN);
+    parser_eat_expect(parser, TOK_PAREN_OPEN);
+    ast_node_t* expr = parser_eat_expression(parser);
+    parser_eat_expect(parser, TOK_PAREN_CLOSE);
+
+    ast_node_t* out = ast_arena_new(parser->arena, AST_CAST_STATEMENT);
+    out->data.cast_statement = (ast_cast_statement_t){
+        .expr = expr,
+        .target_type = type
+    };
+    out->position = Pos;
+    return out;
+}
+
 ast_node_t* parse_variable_declaration(parser_t* parser) {
     /* 
         Syntax: "let <id>: <type> = <expr>;" 

@@ -32,6 +32,11 @@ typedef struct ast_unary_op_t {
     struct ast_node_t* operand;
 } ast_unary_op_t;
 
+typedef struct ast_cast_statement_t {
+    struct ast_node_t* expr;
+    datatype_t target_type;
+} ast_cast_statement_t;
+
 typedef struct ast_if_statement_t {
     struct ast_node_t* expr;
     struct ast_node_t** body;
@@ -104,6 +109,7 @@ typedef struct ast_node_t {
         /* Ast types */
         ast_unary_op_t unary_op;
         ast_binary_op_t binary_op;
+        ast_cast_statement_t cast_statement;
         ast_if_statement_t if_statement;
         ast_variable_declaration_t variable_declaration;
         ast_field_initializer_t field_initializer;

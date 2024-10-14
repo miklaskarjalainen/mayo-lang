@@ -207,8 +207,53 @@ static datatype_t _analyze_expression(const global_scope_t* global, const sym_ta
             return FirstExprType;
         }
 
+        case AST_CAST_STATEMENT: {
+            const datatype_t TargetType = expr->data.cast_statement.target_type;
+            ast_node_t* cast_expr = expr->data.cast_statement.expr;
+            
+            // Contains expr
+            if (!cast_expr) {
+                ANALYZER_ERROR(expr->position, "Empty cast statement");
+            }
+
+            // Target type is valid
+            if (!_analyze_is_valid_type(global, &TargetType)) {
+                ANALYZER_ERROR(expr->position, "Target type '%s' is not defined!", datatype_to_str(&TargetType));
+            }
+
+            // Is castable.
+            const datatype_t ExprType = _analyze_expression(global, variables, cast_expr);
+            if (datatype_cmp(&TargetType, &ExprType)) {
+                return TargetType;
+            }
+
+            // @FIXME: hard coded.
+            if (TargetType.kind == DATATYPE_POINTER && ExprType.kind == DATATYPE_POINTER) {
+                return TargetType;
+            }
+            if (TargetType.kind == DATATYPE_PRIMITIVE && ExprType.kind == DATATYPE_PRIMITIVE) {
+                // i32 <-> char
+                if (
+                    (strcmp(TargetType.typename, "char") && strcmp(ExprType.typename, "i32")) ||
+                    (strcmp(TargetType.typename, "i32") && strcmp(ExprType.typename, "char"))
+                    ) {
+                    return TargetType;
+                }
+                // i32 <-> i64
+                if (
+                    (strcmp(TargetType.typename, "i64") && strcmp(ExprType.typename, "i32")) ||
+                    (strcmp(TargetType.typename, "i32") && strcmp(ExprType.typename, "i64"))
+                    ) {
+                    return TargetType;
+                }
+            }
+
+            ANALYZER_ERROR(expr->position, "Expression cannot be cast to type %s", datatype_to_str(&TargetType));
+            break;
+        }
+
         default: {
-            PANIC("not implemented for type %u", (uint32_t)expr->kind);
+            ANALYZER_ERROR(expr->position, "Semantics not implemented for type %u", (uint32_t)expr->kind);
         }
     }
 
