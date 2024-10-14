@@ -70,7 +70,6 @@ _DEF(TOK_KEYWORD_STRUCT, "struct"),
 
 #if defined(_TK_VALUES)
 /* value tokens */
-_DEF(TOK_CONST_VALUE, "<constant>"),
 _DEF(TOK_CONST_INTEGER, "<const int>"),
 _DEF(TOK_CONST_STRING, "<const string>"),
 #endif

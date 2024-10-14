@@ -24,16 +24,13 @@ static range_t parser_eat_iterator(parser_t* parser) {
         Range iterator syntax: <integer-from>..<integer-to>[.step(<uint>)][.rev(<bool>)]
     */
 
-    token_t tok_from = parser_eat_expect(parser, TOK_CONST_VALUE);
+    token_t tok_from = parser_eat_expect(parser, TOK_CONST_INTEGER);
     parser_eat_expect(parser, TOK_DOUBLE_DOT);
-    token_t tok_to = parser_eat_expect(parser, TOK_CONST_VALUE);
+    token_t tok_to = parser_eat_expect(parser, TOK_CONST_INTEGER);
     
-    PARSER_ASSERT(variant_is_integer(&tok_from.variant), tok_from.position, "only integer numbers are valid in range iterators");
-    PARSER_ASSERT(variant_is_integer(&tok_to.variant)  , tok_to.position  , "only integer numbers are valid in range iterators");
-
     return (range_t) {
-        .from = variant_as_integer(&tok_from.variant),
-        .to = variant_as_integer(&tok_to.variant),
+        .from = tok_from.data.integer,
+        .to = tok_to.data.integer,
 
         /* @TODO: */
         .step = 1,
@@ -90,7 +87,7 @@ static datatype_t parse_eat_datatype(parser_t* parser) {
 */
     /* syntax parsing  */
     const token_t TypenameTok = parser_eat_expect(parser, TOK_IDENTIFIER);
-    const char* Typename = variant_get_cstr(&TypenameTok.variant);
+    const char* Typename = TypenameTok.data.str;
     const core_type_t Type = core_type_from_str(Typename);
 
     datatype_t* type = arena_alloc_zeroed(parser->arena, sizeof(datatype_t));
@@ -117,20 +114,11 @@ ast_node_t* parse_import_statement(parser_t* parser) {
     */
     DEBUG_ASSERT(parser_peek_behind(parser).kind == TOK_KEYWORD_IMPORT, "?");
 
-    const token_t Token = parser_eat_expect(parser, TOK_CONST_VALUE); 
-
-    PARSER_ASSERT(
-        variant_is_builtin_type(&Token.variant, CORETYPE_STR), 
-        Token.position, 
-        "expected %s, but got %s instead",
-        core_type_to_str(CORETYPE_STR),
-        core_type_to_str(Token.variant.type.data.builtin)
-    );
-
+    const token_t Token = parser_eat_expect(parser, TOK_CONST_STRING); 
     parser_eat_expect(parser, TOK_SEMICOLON);
 
     ast_node_t* out = ast_arena_new(parser->arena, AST_IMPORT);
-    out->data.literal = variant_get_cstr(&Token.variant);
+    out->data.literal = Token.data.str;
     return out;
 }
 
@@ -183,7 +171,7 @@ ast_node_t* parse_variable_declaration(parser_t* parser) {
     DEBUG_ASSERT(parser_peek_behind(parser).kind == TOK_KEYWORD_LET, "?");
 
     const token_t IdentifierTok = parser_eat_expect(parser, TOK_IDENTIFIER); 
-    const variant_t Var = IdentifierTok.variant;
+    const char* VariableName = IdentifierTok.data.str;
     parser_eat_expect(parser, TOK_COLON);
     const datatype_t DataType = parse_eat_datatype(parser);
     parser_eat_expect(parser, TOK_EQUALS);
@@ -193,7 +181,7 @@ ast_node_t* parse_variable_declaration(parser_t* parser) {
     PARSER_ASSERT(expr != NULL, SemiColon.position, "expected expression before ';'");
 
     ast_node_t* out = ast_arena_new(parser->arena, AST_VARIABLE_DECLARATION);
-    out->data.variable_declaration.name = variant_get_cstr(&Var);
+    out->data.variable_declaration.name = VariableName;
     out->data.variable_declaration.type = DataType;
     out->data.variable_declaration.expr = expr;
     out->position = IdentifierTok.position;
@@ -219,7 +207,7 @@ static ast_node_t* parse_function_declaration(parser_t* parser) {
                 "<identifier>: <type> [,]"        
         */ 
         const token_t IdentifierTok = parser_eat_expect(parser, TOK_IDENTIFIER);
-        const char* Identifier = variant_get_cstr(&IdentifierTok.variant);
+        const char* Identifier = IdentifierTok.data.str;
         parser_eat_expect(parser, TOK_COLON);
         datatype_t type = parse_eat_datatype(parser);
 
@@ -260,7 +248,7 @@ static ast_node_t* parse_function_declaration(parser_t* parser) {
     ast_node_t** body = parse_body(parser);
 
     ast_function_declaration_t func_decl = { 0 };
-    func_decl.name = variant_get_cstr(&FunctionName.variant);
+    func_decl.name = FunctionName.data.str;
     func_decl.args = args;
     func_decl.return_type = ReturnType;
     func_decl.body = body;
@@ -324,7 +312,7 @@ ast_node_t* parse_struct_initializer_list(parser_t* parser, const char* type_ide
     while (!parser_eat_if(parser, TOK_CURLY_CLOSE)) {
         /* Parsing */
         const token_t IdentifierTok = parser_eat_expect(parser, TOK_IDENTIFIER);
-        const char* FieldIdentifier = variant_get_cstr(&IdentifierTok.variant);
+        const char* FieldIdentifier = IdentifierTok.data.str;
         parser_eat_expect(parser, TOK_COLON);
         ast_node_t* expression = parser_eat_expression(parser);
 
@@ -439,14 +427,14 @@ static ast_node_t* parse_for_loop(parser_t* parser) {
     DEBUG_ASSERT(parser_peek_behind(parser).kind == TOK_KEYWORD_FOR, "?");
 
     
-    token_t identifier = parser_eat_expect(parser, TOK_IDENTIFIER);
+    const token_t IdentifierTok = parser_eat_expect(parser, TOK_IDENTIFIER);
     parser_eat_expect(parser, TOK_KEYWORD_IN);
     range_t range = parser_eat_iterator(parser);
     ast_node_t** body = parse_body(parser);
 
     /* make the iterator be ast */
     ast_for_loop_t ast_for_loop = {
-        .identifier = variant_get_cstr(&identifier.variant),
+        .identifier = IdentifierTok.data.str,
         .iter = range,
         .body = body
     };
@@ -463,7 +451,7 @@ static ast_node_t* parse_struct_declaration(parser_t* parser) {
     */
     DEBUG_ASSERT(parser_peek_behind(parser).kind == TOK_KEYWORD_STRUCT, "?");
     
-    token_t struct_name_tok = parser_eat_expect(parser, TOK_IDENTIFIER);
+    const token_t StructIdentifierTok = parser_eat_expect(parser, TOK_IDENTIFIER);
     parser_eat_expect(parser, TOK_CURLY_OPEN);
 
     ast_variable_declaration_t* members = NULL;
@@ -473,7 +461,7 @@ static ast_node_t* parse_struct_declaration(parser_t* parser) {
                 "<identifier>: <type> [,]"        
         */ 
         const token_t IdentifierTok = parser_eat_expect(parser, TOK_IDENTIFIER);
-        const char* Identifier = variant_get_cstr(&IdentifierTok.variant);
+        const char* Identifier = IdentifierTok.data.str;
         parser_eat_expect(parser, TOK_COLON);
         datatype_t type = parse_eat_datatype(parser);
 
@@ -504,7 +492,7 @@ static ast_node_t* parse_struct_declaration(parser_t* parser) {
 
     /* make the iterator be ast */
     ast_struct_declaration_t struct_decl = {
-        .name = variant_get_cstr(&struct_name_tok.variant),
+        .name = StructIdentifierTok.data.str,
         .members = members
     };
 

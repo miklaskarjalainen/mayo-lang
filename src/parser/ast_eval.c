@@ -124,17 +124,17 @@ static ast_node_t* ast_parse_primary(parser_t* parser) {
             /* function call */
             const token_t Peeked = parser_peek(parser);
             if (Peeked.kind == TOK_PAREN_OPEN) {
-                const char* FnName = variant_get_cstr(&tk.variant);
+                const char* FnName = tk.data.str;
                 return parse_function_call(parser, FnName, true);
             }
             /* struct initializer list */
             if (Peeked.kind == TOK_CURLY_OPEN) {
-                const char* TypeName = variant_get_cstr(&tk.variant);
+                const char* TypeName = tk.data.str;
                 return parse_struct_initializer_list(parser, TypeName);
             }
             /* regular variable */
             ast_node_t* ast = ast_arena_new(parser->arena, AST_GET_VARIABLE);
-            ast->data.literal = tk.variant.value.literal.chars;
+            ast->data.literal = tk.data.str;
             ast->position = tk.position;
             return ast;
         }

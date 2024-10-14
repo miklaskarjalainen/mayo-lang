@@ -113,6 +113,7 @@ static void lexer_flush(lexer_t* lexer) {
         arrpush(lexer->tokens, tk);
     }
     // Booleans
+    /*
     else if (!strcmp(lexer->word.chars, "true")) {
         tk.kind = TOK_CONST_VALUE;
         tk.variant = variant_core(CORETYPE_BOOL);
@@ -125,6 +126,7 @@ static void lexer_flush(lexer_t* lexer) {
         tk.variant.value.boolean = false;
         arrpush(lexer->tokens, tk);
     }
+    */
     //@TODO: Unsigned integers
     //@TODO: Postfixes like "0u64", "10.0f32" 
     else if (is_integer(lexer->word.chars)) {
@@ -132,12 +134,14 @@ static void lexer_flush(lexer_t* lexer) {
         tk.data.integer = atoi(lexer->word.chars);
         arrpush(lexer->tokens, tk);
     }
+    /*
     else if (is_floating_point(lexer->word.chars)) {
         tk.kind = TOK_CONST_VALUE;
         tk.variant = variant_core(CORETYPE_F32);
         tk.variant.value.real = strtod(lexer->word.chars, NULL);
         arrpush(lexer->tokens, tk);
     }
+    */
     else {
         // check that an identifier only contains valid characters.
         for (size_t i = 0; i < lexer->word.length; i++) {
@@ -151,9 +155,10 @@ static void lexer_flush(lexer_t* lexer) {
             }
         }
 
+        size_t Len = lexer->word.length;
         tk.kind = TOK_IDENTIFIER;
-        tk.variant = variant_core(CORETYPE_STR);
-        tk.variant.value.literal = string_from(lexer->word.chars);
+        tk.data.str = arena_alloc_zeroed(lexer->arena, Len + 1);
+        strncpy(tk.data.str, lexer->word.chars, Len);
         arrpush(lexer->tokens, tk);
     }
 
@@ -258,6 +263,7 @@ void lexer_lex(lexer_t* lexer) {
             arrpush(lexer->tokens, tk);
             continue;
         }
+            /*
         if (c == '\'') {
             lexer_flush(lexer);
 
@@ -270,6 +276,7 @@ void lexer_lex(lexer_t* lexer) {
             arrpush(lexer->tokens, tk);
             continue;
         }
+            */
         if (isspace(c)) {
             lexer_flush(lexer);
             continue;

@@ -4,7 +4,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "../variant/variant.h"
 #include "../file_position.h"
 
 typedef enum token_kind_t {
@@ -15,7 +14,6 @@ typedef enum token_kind_t {
 
 typedef struct token_t {
     token_kind_t kind;
-    variant_t variant;
     union {
         int64_t integer;
         char* str; 

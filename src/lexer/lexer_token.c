@@ -75,7 +75,6 @@ token_t token_new(token_kind_t kind) {
 }
 
 void token_clear(token_t* tk) {
-    variant_cleanup(&tk->variant);
     tk->kind = TOK_NONE;
 }
 
@@ -83,13 +82,16 @@ void token_print_pretty(const token_t* tk) {
     printf("[ %s", token_kind_to_str_internal(tk->kind));
 
     switch (tk->kind) {
-        case TOK_CONST_VALUE: {
-            printf(", ");
-            core_type_print(&tk->variant);
+        case TOK_CONST_INTEGER: {
+            printf(", %li", tk->data.integer);
+            break;
+        }
+        case TOK_CONST_STRING: {
+            printf(", '%s'", tk->data.str);
             break;
         }
         case TOK_IDENTIFIER: {
-            printf(", " STDOUT_CYAN "%s" STDOUT_RESET, tk->variant.value.literal.chars);
+            printf(", " STDOUT_CYAN "%s" STDOUT_RESET, tk->data.str);
             break;
         }
 
