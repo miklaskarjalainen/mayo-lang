@@ -58,15 +58,13 @@ static datatype_t* parse_datatype_modifiers(parser_t* parser, datatype_t* inner)
     }
     /* array */
     else if (parser_eat_if(parser, TOK_BRACKET_OPEN)) {
-        const token_t Size = parser_eat_expect(parser, TOK_CONST_VALUE);
-        PARSER_ASSERT(variant_is_number(&Size.variant), Size.position, "only numbers can defined a size of an array");
-        const size_t Len = variant_as_integer(&Size.variant);
+        const size_t Size = parser_eat_expect(parser, TOK_CONST_INTEGER).data.integer;
         parser_eat_expect(parser, TOK_BRACKET_CLOSE);
 
         datatype_t* array_type = arena_alloc_zeroed(&parser->arena, sizeof(datatype_t));
         array_type->kind = DATATYPE_ARRAY;
         array_type->data.array.inner = inner;
-        array_type->data.array.size = Len;
+        array_type->data.array.size = Size;
         return parse_datatype_modifiers(parser, array_type);
     }
 

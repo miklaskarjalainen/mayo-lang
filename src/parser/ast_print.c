@@ -20,6 +20,7 @@
 #define CLEAR_BRANCH(depth) (sPrintTreeBranchBits &= ~(1 << (depth)))
 
 #define AST_TYPE_COLOR STDOUT_BLUE
+#define AST_SECONDARY_COLOR STDOUT_RED
 #define BRANCH_COLOR STDOUT_GREEN
 #define BRANCH_CHAR "\u2503"
 #define BRANCH_CHILD_CHAR "\u2523"
@@ -273,6 +274,12 @@ static void print_return(const ast_node_t* node, size_t depth) {
     print_ast_internal(node->data.expr, depth + 1);
 }
 
+static void print_integer_literal(const ast_node_t* node, size_t depth) {
+    AST_PRINT_SETUP(depth, node->kind, AST_SECONDARY_COLOR "'%li' " STDOUT_RESET , node->data.integer);
+    PRINT_POS(node->position);
+    printf("\n");
+}
+
 static void print_basic(const ast_node_t* node, size_t depth) {
     AST_PRINT_SETUP(depth, node->kind, " ");
     PRINT_POS(node->position);
@@ -307,6 +314,7 @@ static void print_ast_internal(const ast_node_t* node, size_t depth) {
         case AST_IMPORT      : print_ast_literal(node, depth); break;
         case AST_GET_VARIABLE: print_ast_literal(node, depth); break;
         case AST_CONST_VALUE : print_ast_constant(node, depth); break;
+        case AST_INTEGER_LITERAL : print_integer_literal(node, depth); break;
 
         /* basic */
         case AST_BREAK   : print_basic(node, depth); break;

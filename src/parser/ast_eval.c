@@ -106,6 +106,12 @@ static ast_node_t* ast_parse_primary(parser_t* parser) {
     token_t tk = parser_eat(parser);
 
     switch (tk.kind) {
+        case TOK_CONST_INTEGER: {
+            ast_node_t* ast = ast_arena_new(&parser->arena, AST_INTEGER_LITERAL);
+            ast->data.integer = tk.data.integer;
+            return ast;
+        }
+
         case TOK_CONST_VALUE: {
             ast_node_t* ast = ast_arena_new(&parser->arena, AST_CONST_VALUE);
             ast->data.constant = tk.variant;

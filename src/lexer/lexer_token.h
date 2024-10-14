@@ -16,6 +16,9 @@ typedef enum token_kind_t {
 typedef struct token_t {
     token_kind_t kind;
     variant_t variant;
+    union {
+        int64_t integer;
+    } data;
     file_position_t position;
 } token_t;
 

@@ -77,8 +77,16 @@ static const datatype_t* _analyze_expression(const global_scope_t* global, const
         .kind = DATATYPE_CORE_TYPE,
         .data.builtin = CORETYPE_BOOL
     };
+    static const datatype_t I32Type = {
+        .kind = DATATYPE_CORE_TYPE,
+        .data.builtin = CORETYPE_I32
+    };
 
     switch (expr->kind) {
+        case AST_INTEGER_LITERAL: {
+            return &I32Type;
+        };
+        
         case AST_CONST_VALUE: {
             return &expr->data.constant.type;
         }

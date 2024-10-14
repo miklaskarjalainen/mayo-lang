@@ -132,16 +132,14 @@ static void lexer_flush(lexer_t* lexer) {
     else if (!strcmp(lexer->word.chars, "false")) {
         tk.kind = TOK_CONST_VALUE;
         tk.variant = variant_core(CORETYPE_BOOL);
-        tk.variant.value.boolean = true;
+        tk.variant.value.boolean = false;
         arrpush(lexer->tokens, tk);
     }
     //@TODO: Unsigned integers
     //@TODO: Postfixes like "0u64", "10.0f32" 
     else if (is_integer(lexer->word.chars)) {
-        tk.kind = TOK_CONST_VALUE;
-        tk.variant = variant_core(CORETYPE_I32);
-        tk.variant.value.boolean = true;
-        tk.variant.value.signed_integer = atoi(lexer->word.chars);
+        tk.kind = TOK_CONST_INTEGER;
+        tk.data.integer = atoi(lexer->word.chars);
         arrpush(lexer->tokens, tk);
     }
     else if (is_floating_point(lexer->word.chars)) {

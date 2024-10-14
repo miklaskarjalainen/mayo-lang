@@ -98,7 +98,7 @@ typedef struct ast_node_t {
         const char* literal;
         struct ast_node_t* expr;
         range_t range; // @TODO: proper 'iterator' type.
-        uint64_t unsigned_integer;
+        int64_t integer;
 
         /* Ast types */
         ast_unary_op_t unary_op;
