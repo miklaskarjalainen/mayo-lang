@@ -4,6 +4,50 @@
 #include "../common/error.h"
 #include "variant.h"
 
+#define TYPE_BUFFER_LEN 0xFF
+
+// Recursion not needed here, but was easier to for me to think this through.
+static void _impl_datatype_to_str(const datatype_t* datatype, char* buffer, size_t* len) {
+    // TODO: error handling when going past 'TYPE_BUFFER_LEN', having typenames larger than 255 will no be common though.
+    switch (datatype->kind) {
+        case DATATYPE_PRIMITIVE: {
+            size_t TypenameLen = strlen(datatype->typename);
+            char* next = buffer + *len;
+            strncpy(next, datatype->typename, TypenameLen);
+            *len = TypenameLen;
+            break;
+        }
+
+        case DATATYPE_POINTER: {
+            _impl_datatype_to_str(datatype->base, buffer, len);
+            char* next = buffer + *len;
+            *next = '*';
+            (*len)++;
+            break;
+        }
+
+        case DATATYPE_ARRAY: {
+            _impl_datatype_to_str(datatype->base, buffer, len);
+            char* next = buffer + *len;
+            *len += sprintf(next, "[%zu]", datatype->array_size);
+            break;
+        }
+
+        default: {
+            PANIC("?");
+            break;
+        }
+    }
+}
+
+const char* datatype_to_str(const datatype_t* datatype) {
+    static char s_DatatypeStr[TYPE_BUFFER_LEN] = { 0 };
+    memset(s_DatatypeStr, 0, sizeof(s_DatatypeStr));
+    size_t size = 0;
+    _impl_datatype_to_str(datatype, s_DatatypeStr, &size);
+    return s_DatatypeStr;
+}
+
 // e.g mutable i32 pointer -> "mut i32*" 
 void datatype_print(const datatype_t* datatype) {
     RUNTIME_ASSERT(datatype, "DATATYPE IS NULL");    
