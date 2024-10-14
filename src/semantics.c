@@ -27,20 +27,17 @@ static const datatype_t* _analyze_expression(const global_scope_t* global, const
 
 static bool _analyze_is_valid_type(const global_scope_t* global, const datatype_t* type) {
     const datatype_t* TrueType = datatype_underlying_type(type);
+    DEBUG_ASSERT(TrueType->kind == DATATYPE_PRIMITIVE, "?");
 
-    // CORETYPE
-    if (TrueType->kind == DATATYPE_CORE_TYPE) {
+    if (strcmp(TrueType->typename, "i32") == 0) {
+        return true;
+    }
+    else if (strcmp(TrueType->typename, "bool") == 0) {
         return true;
     }
 
-    // Structs
-    if (TrueType->kind == DATATYPE_STRUCT) {
-        ast_variable_declaration_t* var_decl = sym_table_get(&global->structs, TrueType->data.typename);
-        return var_decl != NULL;
-    }
-
-    PANIC("invalid type?");
-    return false;
+    ast_variable_declaration_t* var_decl = sym_table_get(&global->structs, TrueType->typename);
+    return var_decl != NULL;
 }
 
 static void _analyze_func_call(const global_scope_t* global, const sym_table_t* variables, ast_node_t* node) {
@@ -74,12 +71,12 @@ static void _analyze_func_call(const global_scope_t* global, const sym_table_t* 
 
 static const datatype_t* _analyze_expression(const global_scope_t* global, const sym_table_t* variables, ast_node_t* expr) {
     static const datatype_t BoolType = {
-        .kind = DATATYPE_CORE_TYPE,
-        .data.builtin = CORETYPE_BOOL
+        .kind = DATATYPE_PRIMITIVE,
+        .typename = "bool"
     };
     static const datatype_t I32Type = {
-        .kind = DATATYPE_CORE_TYPE,
-        .data.builtin = CORETYPE_I32
+        .kind = DATATYPE_PRIMITIVE,
+        .typename = "i32"
     };
 
     switch (expr->kind) {
@@ -159,21 +156,14 @@ static void _analyze_scoped_node(ast_node_t* node, global_scope_t* global, sym_t
             const bool IsTypeValid = _analyze_is_valid_type(global, VarType);
             if (!IsTypeValid) {
                 const datatype_t* UnderlyingType = datatype_underlying_type(VarType);
-                ANALYZER_ERROR(node->position, "Type '%s' is not defined!", UnderlyingType->data.typename);
+                ANALYZER_ERROR(node->position, "Type '%s' is not defined!", UnderlyingType->typename);
             }
 
             // Get type of expression
             if (node->data.variable_declaration.expr) {
                 const datatype_t* ExprType = _analyze_expression(global, variables, node->data.variable_declaration.expr);
                 
-                // @FIXME: HACK to make i64 types work with i32 declarations. Do actual casts.
-                if (
-                    !datatype_cmp(VarType, ExprType) &&
-                    !(
-                        VarType->kind == DATATYPE_CORE_TYPE && ExprType->kind == DATATYPE_CORE_TYPE &&
-                        VarType->data.builtin == CORETYPE_I32 && ExprType->data.builtin == CORETYPE_I64 
-                    )
-                ) {
+                if (!datatype_cmp(VarType, ExprType)) {
                     ANALYZER_ERROR(node->position, "Type mismatch between declaration and expression!");
                 }
             }
@@ -242,12 +232,12 @@ static void _analyze_global_node(ast_node_t* node, global_scope_t* global) {
             const bool IsTypeValid = _analyze_is_valid_type(global, VarType);
             if (!IsTypeValid) {
                 const datatype_t* UnderlyingType = datatype_underlying_type(VarType);
-                ANALYZER_ERROR(node->position, "In function '%s' return type '%s' is not defined!",  FnName, UnderlyingType->data.typename);
+                ANALYZER_ERROR(node->position, "In function '%s' return type '%s' is not defined!",  FnName, UnderlyingType->typename);
             }
 
             // Main specific
             if (strcmp(FnName, "main") == 0) {
-                if (VarType->kind != DATATYPE_CORE_TYPE || VarType->data.builtin != CORETYPE_I32) {
+                if (VarType->kind != DATATYPE_PRIMITIVE || strcmp(VarType->typename, "i32")) {
                     ANALYZER_ERROR(node->position, "The main function can only return 'i32'");
                 }
             }

@@ -5,7 +5,6 @@
 #include "../common/arena.h"
 #include "../common/error.h"
 #include "../compile_error.h"
-#include "../variant/core_type.h"
 #include "../parser.h"
 
 #include "ast_eval.h"
@@ -51,7 +50,7 @@ static datatype_t* parse_datatype_modifiers(parser_t* parser, datatype_t* inner)
         /* @FIXME: parsing type from "let i: i32*= 0" causes funny things, star&eq is tokenized as "TOK_STAR_EQUAL" */
         datatype_t* ptr_type = arena_alloc_zeroed(parser->arena, sizeof(datatype_t));
         ptr_type->kind = DATATYPE_POINTER;
-        ptr_type->data.pointer = inner;
+        ptr_type->base = inner;
         return parse_datatype_modifiers(parser, ptr_type);
     }
     /* array */
@@ -61,8 +60,8 @@ static datatype_t* parse_datatype_modifiers(parser_t* parser, datatype_t* inner)
 
         datatype_t* array_type = arena_alloc_zeroed(parser->arena, sizeof(datatype_t));
         array_type->kind = DATATYPE_ARRAY;
-        array_type->data.array.inner = inner;
-        array_type->data.array.size = Size;
+        array_type->base = inner;
+        array_type->array_size = Size;
         return parse_datatype_modifiers(parser, array_type);
     }
 
@@ -88,19 +87,10 @@ static datatype_t parse_eat_datatype(parser_t* parser) {
     /* syntax parsing  */
     const token_t TypenameTok = parser_eat_expect(parser, TOK_IDENTIFIER);
     const char* Typename = TypenameTok.data.str;
-    const core_type_t Type = core_type_from_str(Typename);
 
     datatype_t* type = arena_alloc_zeroed(parser->arena, sizeof(datatype_t));
-    if (Type != CORETYPE_INVALID) {
-        /* builtin */
-        type->kind = DATATYPE_CORE_TYPE;
-        type->data.builtin = Type;
-    }
-    else {
-        /* struct */
-        type->kind = DATATYPE_STRUCT;
-        type->data.typename = Typename;
-    }
+    type->typename = Typename;
+    type->kind = DATATYPE_PRIMITIVE;
 
     /* get all modifiers, array, ptr, etc. */
     datatype_t* new_type = parse_datatype_modifiers(parser, type);

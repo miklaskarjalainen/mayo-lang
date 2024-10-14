@@ -12,7 +12,6 @@
 #include "file_position.h"
 #include "lexer/lexer_token.h"
 #include "compile_error.h"
-#include "variant/core_type.h"
 #include "variant/variant.h"
 #include "lexer.h"
 
