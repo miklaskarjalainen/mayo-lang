@@ -15,6 +15,7 @@ set(SOURCE_FILES
     src/common/sym_table.c src/common/sym_table.h  
     src/common/utils.c src/common/utils.h 
     src/common/arena.c src/common/arena.h 
+    src/common/stats.h
     src/common/error.h
     src/common/range.h
     

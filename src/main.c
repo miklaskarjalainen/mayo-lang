@@ -27,6 +27,8 @@ jmp_buf g_Jumpluff;
 
 
 int main(int argc, char** argv) {
+    PERF_BEGIN(ProgramBegin);
+
     int exit_code = SETJUMP();
     if (!exit_code) {
         g_Params = cli_parse(argc, argv);
@@ -37,6 +39,7 @@ int main(int argc, char** argv) {
     else {
         goto clean_params;
     }
+    const clock_t ArgParseDuration = PERF_END(ProgramBegin);
 
     // Get path 
     const size_t InputFileCount = arrlenu(g_Params.input_files);
@@ -51,19 +54,30 @@ int main(int argc, char** argv) {
     lexer_init(&lexer, &arena, Path);
     parser_t parser = parser_new(&arena, &lexer);
 
+    clock_t lex_duration = 0;
+    clock_t parse_duration = 0;
+    clock_t analysis_duration = 0;
+
     exit_code = SETJUMP();
     if (!exit_code) {
         // Lex
+        PERF_BEGIN(LexBegin);
         lexer_lex(&lexer);
         const size_t TkCount = arrlenu(lexer.tokens);
         for (size_t tk_idx = 0; tk_idx < TkCount; tk_idx++) {
             token_print_pretty(&lexer.tokens[tk_idx]);
         }
+        lex_duration = PERF_END(LexBegin);
 
         // Parsing
+        PERF_BEGIN(ParseBegin);
         parser_parse(&parser);
         print_ast_tree(parser.node_root);
+        parse_duration = PERF_END(ParseBegin);
+
+        PERF_BEGIN(AnalysisBegin);
         semantic_analysis(parser.node_root);
+        analysis_duration = PERF_END(AnalysisBegin);
     }
 
     parser_cleanup(&parser);
@@ -72,6 +86,16 @@ int main(int argc, char** argv) {
 clean_params:;
     cli_delete_params(&g_Params);
     
+    clock_t ProgramDuration = PERF_END(ProgramBegin);
+
+    // Print performance
+    printf("PERFORMANCE:\n");
+    printf("  Arg parse duration: ");     PRINT_DURATION(ArgParseDuration); printf("\n");
+    printf("  Code lex duration: ");      PRINT_DURATION(lex_duration); printf("\n");
+    printf("  Code parse duration: ");    PRINT_DURATION(parse_duration); printf("\n");
+    printf("  Code analysis duration: "); PRINT_DURATION(analysis_duration); printf("\n");
+    printf("  Program duration: ");       PRINT_DURATION(ProgramDuration); printf("\n");
+
 
     return exit_code;
 } 
