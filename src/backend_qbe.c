@@ -176,10 +176,6 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, qbe_variable_t*
             return r;
         }
         
-        /*
-        @loop_begin
-            %r1 =w phi @start (INITIAL_VALUE,), @loop_begin (new_value)
-        */
 
         case AST_WHILE_LOOP: {
             const ast_while_loop_t* WhileLoop = &ast->data.while_loop;
@@ -217,7 +213,49 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, qbe_variable_t*
             fprint_label(f, LabelEnd); 
             fprintf(f, "\n");
 
-            break;
+            return CompTemp;
+        }
+
+        case AST_IF_STATEMENT: {
+            const ast_if_statement_t* IfStatement = &ast->data.if_statement;
+
+            const label_t LabelComparision = get_label();
+            const label_t LabelIf = get_label();
+            const label_t LabelElse = get_label();
+            const label_t LabelOut = get_label();
+
+            fprint_label(f, LabelComparision);
+            fprintf(f, "\n");
+            const temporary_t CompTemp = _generate_expr_node(f, IfStatement->expr, variables);
+            fprintf(f, "\tjnz ");
+            fprint_temp(f, CompTemp);
+            fprintf(f, ", ");
+            fprint_label(f, LabelIf); 
+            fprintf(f, ", ");
+            fprint_label(f, LabelElse); 
+            fprintf(f, "\n"); 
+
+            // If Body
+            fprint_label(f, LabelIf);
+            fprintf(f, "\n");
+            const size_t BodyCount = arrlenu(IfStatement->body);
+            for (size_t i = 0; i < BodyCount; i++) {
+                _generate_expr_node(f, IfStatement->body[i], variables);
+            }
+            fprintf(f, "\tjmp ");
+            fprint_label(f, LabelOut);
+            fprintf(f, "\n");
+
+            // Else Body
+            fprint_label(f, LabelElse);
+            fprintf(f, "\n");
+            const size_t ElseBodyCount = arrlenu(IfStatement->else_body);
+            for (size_t i = 0; i < ElseBodyCount; i++) {
+                _generate_expr_node(f, IfStatement->else_body[i], variables);
+            }
+            fprint_label(f, LabelOut);
+            fprintf(f, "\n");
+            return CompTemp;
         }
 
         default: {
