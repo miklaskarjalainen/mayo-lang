@@ -26,18 +26,32 @@ static temporary_t get_temporary(void) {
     return (temporary_t){.id = s_Id++};
 }
 
-static void fprint_temp(FILE* f, temporary_t temp) {
-    fprintf(f, "%%r%u", temp.id);
-} 
-
-/*
 static label_t get_label(void) {
     static uint32_t s_Id = 0;
     return (label_t){.id = s_Id++};
 }
-*/
 
-static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, qbe_variable_t* variables) {
+static void fprint_temp(FILE* f, temporary_t temp) {
+    fprintf(f, "%%r%u", temp.id);
+} 
+
+static void fprint_label(FILE* f, label_t temp) {
+    fprintf(f, "@l%u", temp.id);
+} 
+
+static size_t _find_variable(const char* name, qbe_variable_t** variables) {
+    // Search for temp
+    size_t VarLen = arrlenu(variables);
+    for (size_t i = 0; i < VarLen; i++) {
+        if (strcmp((*variables)[i].var_name, name) == 0) {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, qbe_variable_t** variables) {
     switch (ast->kind) {
         // @FIXME: Actually implement this.
         case AST_CAST_STATEMENT: {
@@ -62,20 +76,35 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, qbe_variable_t*
 
         case AST_GET_VARIABLE: {
             // Search for temp
-            size_t VarLen = arrlenu(variables);
-            for (size_t i = 0; i < VarLen; i++) {
-                if (strcmp(variables[i].var_name, ast->data.literal) == 0) {
-                    return variables[i].temp;
-                }
+            const size_t Place = _find_variable(ast->data.literal, variables);
+            if (Place != (size_t)-1) {
+                return (*variables)[Place].temp;
             }
             PANIC("no temporary for variable '%s'!", ast->data.literal);
             break;
         }
 
         case AST_BINARY_OP: {
+            if (ast->data.binary_op.operation == BINARY_OP_ASSIGN) {
+                const char* VarName = ast->data.binary_op.left->data.literal;
+                const size_t Place = _find_variable(VarName, variables);
+                if (Place == (size_t)-1) {
+                    PANIC("no temporary for variable '%s'!", VarName);
+                }
+
+                const temporary_t Temp = _generate_expr_node(f, ast->data.binary_op.right, variables);
+                fprintf(f, "\t");
+                fprint_temp(f, (*variables)[Place].temp);
+                fprintf(f, " =w copy ");
+                fprint_temp(f, Temp);
+                fprintf(f, "\n");
+                return Temp;
+            }
+            
             temporary_t lhs = _generate_expr_node(f, ast->data.binary_op.left, variables);
             temporary_t rhs = _generate_expr_node(f, ast->data.binary_op.right, variables);
             temporary_t r = get_temporary();
+
             
             fprintf(f, "\t");
             fprint_temp(f, r);
@@ -84,6 +113,13 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, qbe_variable_t*
                 case BINARY_OP_ADD: { fprintf(f, "=w add "); break; }
                 case BINARY_OP_SUBTRACT: { fprintf(f, "=w sub "); break; }
                 case BINARY_OP_MULTIPLY: { fprintf(f, "=w mul "); break; }
+                case BINARY_OP_EQUAL: { fprintf(f, "=w ceqw "); break; }
+                case BINARY_OP_NOT_EQUAL: { fprintf(f, "=w cnew "); break; }
+
+                case BINARY_OP_ASSIGN: { 
+                    fprintf(f, "=w ");
+                    break;
+                }
 
                 default: {
                     PANIC("Op not implemented %u", ast->data.binary_op.operation);
@@ -136,7 +172,51 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, qbe_variable_t*
             const char* ArgName = ast->data.variable_declaration.name;
             temporary_t r = _generate_expr_node(f, ast->data.variable_declaration.expr, variables);
             const qbe_variable_t VarTemp = {.var_name = ArgName, .temp = r};
-            arrput(variables, VarTemp);
+            arrput(*variables, VarTemp);
+            return r;
+        }
+        
+        /*
+        @loop_begin
+            %r1 =w phi @start (INITIAL_VALUE,), @loop_begin (new_value)
+        */
+
+        case AST_WHILE_LOOP: {
+            const ast_while_loop_t* WhileLoop = &ast->data.while_loop;
+
+            const label_t LabelComparision = get_label();
+            const label_t LabelBegin = get_label();
+            const label_t LabelEnd = get_label();
+
+            // Begin label
+            fprint_label(f, LabelComparision); 
+            fprintf(f, "\n");
+
+            // Comparision
+            const temporary_t CompTemp = _generate_expr_node(f, WhileLoop->expr, variables);
+            fprintf(f, "\tjnz ");
+            fprint_temp(f, CompTemp);
+            fprintf(f, ", ");
+            fprint_label(f, LabelBegin); 
+            fprintf(f, ", ");
+            fprint_label(f, LabelEnd); 
+            fprintf(f, "\n"); 
+
+            // Body
+            fprint_label(f, LabelBegin);
+            fprintf(f, "\n"); 
+            const size_t BodyCount = arrlenu(WhileLoop->body);
+            for (size_t i = 0; i < BodyCount; i++) {
+                _generate_expr_node(f, WhileLoop->body[i], variables);
+            }
+            fprintf(f, "\tjmp ");
+            fprint_label(f, LabelComparision); 
+            fprintf(f, "\n");
+
+            // End Label
+            fprint_label(f, LabelEnd); 
+            fprintf(f, "\n");
+
             break;
         }
 
@@ -179,7 +259,7 @@ static void _generate_ast_global_node(FILE* f, ast_node_t* ast) {
             // Body
             const size_t BodyCount = arrlenu(FuncDecl->body);
             for (size_t i = 0; i < BodyCount; i++) {
-                _generate_expr_node(f, FuncDecl->body[i], variables);
+                _generate_expr_node(f, FuncDecl->body[i], &variables);
             }
             arrfree(variables);
 
