@@ -62,25 +62,25 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, qbe_variable_t*
         case AST_BINARY_OP: {
             temporary_t lhs = _generate_expr_node(f, ast->data.binary_op.left, variables);
             temporary_t rhs = _generate_expr_node(f, ast->data.binary_op.right, variables);
+            temporary_t r = get_temporary();
+            
+            fprintf(f, "\t");
+            fprint_temp(f, r);
             
             switch (ast->data.binary_op.operation) {
-                case BINARY_OP_ADD: {
-                    temporary_t r = get_temporary();
-                    fprintf(f, "\t");
-                    fprint_temp(f, r);
-                    fprintf(f, "=w add ");
-                    fprint_temp(f, lhs);
-                    fprintf(f, ", ");
-                    fprint_temp(f, rhs);
-                    fprintf(f, "\n");
-                    return r;
-                }
+                case BINARY_OP_ADD: { fprintf(f, "=w add "); break; }
+                case BINARY_OP_MULTIPLY: { fprintf(f, "=w mul "); break; }
 
                 default: {
                     PANIC("Op not implemented %u", ast->data.binary_op.operation);
                 }
             }
-            break;
+
+            fprint_temp(f, lhs);
+            fprintf(f, ", ");
+            fprint_temp(f, rhs);
+            fprintf(f, "\n");
+            return r;
         }
 
         case AST_FUNCTION_CALL: {
@@ -118,6 +118,14 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, qbe_variable_t*
             return r;
         }
 
+        case AST_VARIABLE_DECLARATION: {
+            const char* ArgName = ast->data.variable_declaration.name;
+            temporary_t r = _generate_expr_node(f, ast->data.variable_declaration.expr, variables);
+            const qbe_variable_t VarTemp = {.var_name = ArgName, .temp = r};
+            arrput(variables, VarTemp);
+            break;
+        }
+
         default: {
             PANIC("not implemented for type %u", ast->kind);
         }
@@ -143,12 +151,11 @@ static void _generate_ast_global_node(FILE* f, ast_node_t* ast) {
             for (size_t i = 0; i < ArrCount; i++) {
                 const char* ArgName = FuncDecl->args[i].data.variable_declaration.name;
                 const qbe_variable_t VarTemp = {.var_name = ArgName, .temp = get_temporary()};
+                arrput(variables, VarTemp);
 
                 fprintf(f, "w ");
                 fprint_temp(f, VarTemp.temp);
                 fprintf(f, ", ");
-
-                arrput(variables, VarTemp);
             }
             fprintf(f, ") {\n@start\n");
             
