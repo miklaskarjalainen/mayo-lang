@@ -39,6 +39,19 @@ static label_t get_label(void) {
 
 static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, qbe_variable_t* variables) {
     switch (ast->kind) {
+        // @FIXME: Actually implement this.
+        case AST_CAST_STATEMENT: {
+            return _generate_expr_node(f, ast->data.cast_statement.expr, variables);
+        }
+
+        case AST_CHAR_LITERAL: {
+            temporary_t r = get_temporary();
+            fprintf(f, "\t");
+            fprint_temp(f, r);
+            fprintf(f, "=w copy %u\n", ast->data.c);
+            return r;
+        }
+
         case AST_INTEGER_LITERAL: {
             temporary_t r = get_temporary();
             fprintf(f, "\t");
@@ -69,6 +82,7 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, qbe_variable_t*
             
             switch (ast->data.binary_op.operation) {
                 case BINARY_OP_ADD: { fprintf(f, "=w add "); break; }
+                case BINARY_OP_SUBTRACT: { fprintf(f, "=w sub "); break; }
                 case BINARY_OP_MULTIPLY: { fprintf(f, "=w mul "); break; }
 
                 default: {
@@ -139,6 +153,9 @@ static void _generate_ast_global_node(FILE* f, ast_node_t* ast) {
     switch (ast->kind) {
         case AST_FUNCTION_DECLARATION: {
             const ast_function_declaration_t* FuncDecl = &ast->data.function_declaration;
+            if (FuncDecl->external) {
+                return;
+            }
             
             qbe_variable_t* variables = NULL; //? Pointer to this might need to passed (double ptr)
 
