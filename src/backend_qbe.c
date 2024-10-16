@@ -109,6 +109,42 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, qbe_variable_t*
             return ArrayBegin;
         }
 
+        case AST_ARRAY_INITIALIZER_LIST: {
+            const size_t ElementSize = 1; // @FIXME: add type dependant sizes.
+            const size_t ArraySize = arrlenu(ast->data.array_initializer_list.exprs);
+            const size_t AllocSize = ArraySize * ElementSize;
+
+            // Allocate storage for the string
+            const temporary_t ArrayBegin  = get_temporary();
+            fprintf(f, "\t");
+            fprint_temp(f, ArrayBegin);
+            fprintf(f, "=l alloc4 %zu\n", AllocSize);
+
+            // Store the characters from the string to the array
+            for (size_t i = 0; i < ArraySize; i++) {
+                // Make a pointer to the index
+                const temporary_t IndexPtr  = get_temporary();
+                fprintf(f, "\t");
+                fprint_temp(f, IndexPtr);
+                fprintf(f, " =l add ");
+                fprint_temp(f, ArrayBegin);
+                fprintf(f, ", %zu # Array[%zu] \n", i, i);
+
+                // Get expr
+                fprintf(f, "# Array[%zu] expr \n", i);
+                const temporary_t ValueTemp  = _generate_expr_node(f, ast->data.array_initializer_list.exprs[i], variables);
+
+                // Store a byte into index
+                fprintf(f, "\tstoreb "); // @FIXME use proper store, using type.
+                fprint_temp(f, ValueTemp);
+                fprintf(f, ", ");
+                fprint_temp(f, IndexPtr);
+                fprintf(f, "\n");
+            }
+
+            return ArrayBegin;
+        }
+
         case AST_GET_VARIABLE: {
             // Search for temp
             const size_t Place = _find_variable(ast->data.literal, variables);

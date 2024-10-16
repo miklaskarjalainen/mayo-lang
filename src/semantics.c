@@ -71,7 +71,9 @@ static void _analyze_func_call(global_scope_t* global, const sym_table_t* variab
         
         datatype_t ExprType = _analyze_expression(global, variables, argument_expr);
         if (!datatype_cmp(&ExprType, &argument_decl->type)) {
-            ANALYZER_ERROR(node->position, "passed argument does not match expected type for argument!");
+            char expr_type_str[0xFF] = { 0 };
+            strncpy(expr_type_str, datatype_to_str(&ExprType), ARRAY_LEN(expr_type_str));
+            ANALYZER_ERROR(node->position, "Argument expected type '%s', got '%s' instead!", datatype_to_str(&argument_decl->type), expr_type_str);
         }
     }
 }
@@ -217,8 +219,14 @@ static datatype_t _analyze_expression(global_scope_t* global, const sym_table_t*
                 }
             }
 
-            UNIMPLEMENTED("does not work yet because the inner type would have to be alloced to heap!");
-            return FirstExprType;
+            // construct type for this
+            datatype_t* inner_type = arena_alloc(&global->datatype_arena, sizeof(datatype_t));
+            *inner_type = FirstExprType;             
+            return (datatype_t) {
+                .kind = DATATYPE_ARRAY,
+                .base = inner_type,
+                .array_size = InitializerSize
+            };
         }
 
         case AST_CAST_STATEMENT: {
