@@ -58,6 +58,7 @@ int main(int argc, char** argv) {
     clock_t lex_duration = 0;
     clock_t parse_duration = 0;
     clock_t analysis_duration = 0;
+    clock_t qbe_gen_duration = 0;
 
     exit_code = SETJUMP();
     if (!exit_code) {
@@ -81,9 +82,11 @@ int main(int argc, char** argv) {
         analysis_duration = PERF_END(AnalysisBegin);
         
         // Output qbe
+        PERF_BEGIN(QbeBegin);
         FILE* f = fopen("output.ssa", "w");
         generate_qbe(f, parser.node_root);
         fclose(f);
+        qbe_gen_duration = PERF_END(QbeBegin);
     }
 
 
@@ -101,6 +104,7 @@ clean_params:;
     printf("  Code lex duration: ");      PRINT_DURATION(lex_duration); printf("\n");
     printf("  Code parse duration: ");    PRINT_DURATION(parse_duration); printf("\n");
     printf("  Code analysis duration: "); PRINT_DURATION(analysis_duration); printf("\n");
+    printf("  Qbe Generate duration: ");       PRINT_DURATION(qbe_gen_duration); printf("\n");
     printf("  Program duration: ");       PRINT_DURATION(ProgramDuration); printf("\n");
 
 

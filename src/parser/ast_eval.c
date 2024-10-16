@@ -184,6 +184,7 @@ static ast_node_t* ast_parse_expression(parser_t* parser, uint8_t prec) {
         };
         ast_node_t* ast = ast_arena_new(parser->arena, AST_UNARY_OP);
         ast->data.unary_op = unary;
+        ast->position = peeked.position;
         return ast;
     }
 
@@ -237,6 +238,7 @@ static ast_node_t* ast_parse_expression(parser_t* parser, uint8_t prec) {
             operator->data.binary_op.operation = op;
             operator->data.binary_op.left = lhs;
             operator->data.binary_op.right = rhs;
+            operator->position = tk.position;
             return operator;
         }
     }
