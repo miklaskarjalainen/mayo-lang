@@ -58,6 +58,10 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, qbe_variable_t*
             return _generate_expr_node(f, ast->data.cast_statement.expr, variables);
         }
 
+        case AST_UNARY_OP: {
+            return _generate_expr_node(f, ast->data.unary_op.operand, variables); 
+        }
+
         case AST_CHAR_LITERAL: {
             temporary_t r = get_temporary();
             fprintf(f, "\t");
@@ -72,6 +76,37 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, qbe_variable_t*
             fprint_temp(f, r);
             fprintf(f, "=w copy %li\n", ast->data.integer);
             return r;
+        }
+
+        case AST_STRING_LITERAL: {
+            const size_t AllocSize = strlen(ast->data.literal) + 1;
+
+            // Allocate storage for the string
+            const temporary_t ArrayBegin  = get_temporary();
+            fprintf(f, "\t");
+            fprint_temp(f, ArrayBegin);
+            fprintf(f, "=l alloc4 %zu\n", AllocSize);
+
+            // Store the characters from the string to the array
+            for (size_t i = 0; i < AllocSize; i++) {
+                const temporary_t IndexPtr  = get_temporary();
+                const char Char = ast->data.literal[i];
+
+                // Ptr to index
+                fprintf(f, "\t");
+                fprint_temp(f, IndexPtr);
+                fprintf(f, " =l add ");
+                fprint_temp(f, ArrayBegin);
+                fprintf(f, ", %zu # Str[%zu] \n", i, i);
+
+                // Store a byte into index
+                fprintf(f, "\tstoreb %u, ", Char);
+                fprint_temp(f, IndexPtr);
+                fprintf(f, " # Str[%zu] <- %u\n", i, Char);
+            }
+
+
+            return ArrayBegin;
         }
 
         case AST_GET_VARIABLE: {
