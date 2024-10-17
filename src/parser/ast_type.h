@@ -124,6 +124,7 @@ typedef struct ast_node_t {
     } data;
 
     file_position_t position;
+    datatype_t expr_type;
 } ast_node_t;
 
 struct arena_t;

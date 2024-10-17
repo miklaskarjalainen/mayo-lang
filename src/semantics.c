@@ -24,7 +24,7 @@ typedef struct global_scope_t {
     sym_table_t functions, structs;
     
     // Work around for having to allocate datatypes for inner types.
-    arena_t datatype_arena;
+    arena_t* arena;
 } global_scope_t;
 
 static datatype_t _analyze_expression(global_scope_t* global, const sym_table_t* variables, ast_node_t* expr);
@@ -78,7 +78,7 @@ static void _analyze_func_call(global_scope_t* global, const sym_table_t* variab
     }
 }
 
-static datatype_t _analyze_expression(global_scope_t* global, const sym_table_t* variables, ast_node_t* expr) {
+static datatype_t _analyze_expression_impl(global_scope_t* global, const sym_table_t* variables, ast_node_t* expr) {
     static const datatype_t BoolType = {
         .kind = DATATYPE_PRIMITIVE,
         .typename = "bool"
@@ -124,7 +124,7 @@ static datatype_t _analyze_expression(global_scope_t* global, const sym_table_t*
 
         case AST_UNARY_OP: {
             // Create a type which a pointer to this one.
-            datatype_t* inner = arena_alloc(&global->datatype_arena, sizeof(datatype_t));
+            datatype_t* inner = arena_alloc(global->arena, sizeof(datatype_t));
             *inner = _analyze_expression(global, variables, expr->data.unary_op.operand);
 
             return (datatype_t) {
@@ -220,7 +220,7 @@ static datatype_t _analyze_expression(global_scope_t* global, const sym_table_t*
             }
 
             // construct type for this
-            datatype_t* inner_type = arena_alloc(&global->datatype_arena, sizeof(datatype_t));
+            datatype_t* inner_type = arena_alloc(global->arena, sizeof(datatype_t));
             *inner_type = FirstExprType;             
             return (datatype_t) {
                 .kind = DATATYPE_ARRAY,
@@ -280,6 +280,11 @@ static datatype_t _analyze_expression(global_scope_t* global, const sym_table_t*
     }
 
     return (datatype_t){ 0 };
+}
+
+static datatype_t _analyze_expression(global_scope_t* global, const sym_table_t* variables, ast_node_t* expr) {
+    expr->expr_type = _analyze_expression_impl(global, variables, expr);
+    return expr->expr_type;
 }
 
 static void _analyze_scoped_node(ast_node_t* node, global_scope_t* global, sym_table_t* variables) {
@@ -433,16 +438,15 @@ static void _analyze_global_node(ast_node_t* node, global_scope_t* global) {
     
 }
 
-void semantic_analysis(ast_node_t* node) {
+void semantic_analysis(arena_t* arena, ast_node_t* node) {
     global_scope_t global = { 0 };
     sym_table_init(&global.functions);
     sym_table_init(&global.structs);
-    arena_init(&global.datatype_arena, 256);
+    global.arena = arena;
 
     _analyze_global_node(node, &global);
 
     sym_table_cleanup(&global.functions);
     sym_table_cleanup(&global.structs);
-    arena_free(&global.datatype_arena);
 }
 
