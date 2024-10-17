@@ -39,6 +39,88 @@ static void fprint_label(FILE* f, label_t temp) {
     fprintf(f, "@l%u", temp.id);
 } 
 
+static size_t _get_type_size(const datatype_t* type) {
+    /*
+        Cheatsheet:
+            Byte is size of 1. So:
+            (b)yte      = 1 (8-bit),
+            (h)alf word = 2 (16-bit),
+            (w)ord      = 4 (32-bit),
+            (l)ong/ptr  = 8 (64-bit),
+            
+            (s)ingle    = 4 (32-bit),
+            (d)ouble    = 8 (64-bit),
+    */
+    
+    switch (type->kind) {
+        case DATATYPE_POINTER: {
+            return 8;
+        }
+
+        case DATATYPE_ARRAY: {
+            const size_t ElementSize = _get_type_size(type->base);
+            return ElementSize * type->array_size;
+        }
+
+        case DATATYPE_PRIMITIVE: {
+#define IF_TYPE_RET(s1, ret) if (strcmp(type->typename, s1) == 0) { return ret; } 
+            IF_TYPE_RET("char", 1);
+            IF_TYPE_RET("i8", 1);
+            IF_TYPE_RET("u8", 1);
+            IF_TYPE_RET("i16", 2);
+            IF_TYPE_RET("u16", 2);
+            IF_TYPE_RET("i32", 4);
+            IF_TYPE_RET("u32", 4);
+            IF_TYPE_RET("i64", 8);
+            IF_TYPE_RET("u64", 8);
+
+            IF_TYPE_RET("f32", 4);
+            IF_TYPE_RET("f64", 8);
+#undef IF_TYPE_RET
+            PANIC("Size not implemented for type '%s'", type->typename);
+        }
+
+        default: {
+            UNIMPLEMENTED("Invalid type");
+        }
+    }
+
+    return 0;
+}
+
+static const char* _get_store_ins(const datatype_t* register_type) {
+    switch (register_type->kind) {
+        case DATATYPE_ARRAY:
+        case DATATYPE_POINTER: {
+            return "storel";
+        }
+
+        case DATATYPE_PRIMITIVE: {
+#define IF_TYPE_RET(s1, ret) if (strcmp(register_type->typename, s1) == 0) { return ret; } 
+            IF_TYPE_RET("char", "storeb");
+            IF_TYPE_RET("i8", "storeb");
+            IF_TYPE_RET("u8", "storeb");
+            IF_TYPE_RET("i16", "storeh");
+            IF_TYPE_RET("u16", "storeh");
+            IF_TYPE_RET("i32", "storew");
+            IF_TYPE_RET("u32", "storew");
+            IF_TYPE_RET("i64", "storel");
+            IF_TYPE_RET("u64", "storel");
+
+            IF_TYPE_RET("f32", "stores");
+            IF_TYPE_RET("f64", "stored");
+#undef IF_TYPE_RET
+            PANIC("Size not implemented for type '%s'", register_type->typename);
+        }
+
+        default: {
+            UNIMPLEMENTED("Invalid type");
+        }
+    }
+
+    return 0;
+}
+
 static size_t _find_variable(const char* name, qbe_variable_t** variables) {
     // Search for temp
     size_t VarLen = arrlenu(variables);
@@ -110,7 +192,10 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, qbe_variable_t*
         }
 
         case AST_ARRAY_INITIALIZER_LIST: {
-            const size_t ElementSize = 1; // @FIXME: add type dependant sizes.
+            const datatype_t* ExprType = &ast->expr_type;
+            DEBUG_ASSERT(ExprType->kind == DATATYPE_ARRAY, "?");
+
+            const size_t ElementSize = _get_type_size(ExprType);
             const size_t ArraySize = arrlenu(ast->data.array_initializer_list.exprs);
             const size_t AllocSize = ArraySize * ElementSize;
 
@@ -135,7 +220,7 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, qbe_variable_t*
                 const temporary_t ValueTemp  = _generate_expr_node(f, ast->data.array_initializer_list.exprs[i], variables);
 
                 // Store a byte into index
-                fprintf(f, "\tstoreb "); // @FIXME use proper store, using type.
+                fprintf(f, "\t%s ", _get_store_ins(ExprType->base));
                 fprint_temp(f, ValueTemp);
                 fprintf(f, ", ");
                 fprint_temp(f, IndexPtr);
