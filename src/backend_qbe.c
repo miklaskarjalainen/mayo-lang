@@ -154,6 +154,40 @@ static const char* _get_load_ins(const datatype_t* register_type) {
     return 0;
 }
 
+// base types: w | l | s | d
+static char _get_base_type(const datatype_t* register_type) {
+    switch (register_type->kind) {
+        case DATATYPE_ARRAY:
+        case DATATYPE_POINTER: {
+            return 'l';
+        }
+
+        case DATATYPE_PRIMITIVE: {
+#define IF_TYPE_RET(s1, ret) if (strcmp(register_type->typename, s1) == 0) { return ret; } 
+            IF_TYPE_RET("char", 'w');
+            IF_TYPE_RET("i8"  , 'w');
+            IF_TYPE_RET("u8"  , 'w');
+            IF_TYPE_RET("i16" , 'w');
+            IF_TYPE_RET("u16" , 'w');
+            IF_TYPE_RET("i32" , 'w');
+            IF_TYPE_RET("u32" , 'w');
+            IF_TYPE_RET("i64" , 'l');
+            IF_TYPE_RET("u64" , 'l');
+
+            IF_TYPE_RET("f32" , 's');
+            IF_TYPE_RET("f64" , 'd');
+#undef IF_TYPE_RET
+            PANIC("Size not implemented for type '%s'", register_type->typename);
+        }
+
+        default: {
+            UNIMPLEMENTED("Invalid type");
+        }
+    }
+
+    return 0;
+}
+
 static temporary_t _get_array_ptr(FILE* f, temporary_t array_ptr, temporary_t index_temp, const datatype_t* element_type) {
     // @FIXME: Casts a temporary to long, even thought it already might be :)
     // Index operator: e.g
@@ -347,7 +381,7 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, qbe_variable_t*
                     fprint_temp(f, (*variables)[Place].temp);
                 }
 
-                fprintf(f, "=w copy ");
+                fprintf(f, "=%c copy", _get_base_type(&ast->expr_type));
                 fprint_temp(f, Temp);
                 fprintf(f, "\n");
                 return Temp;
