@@ -70,7 +70,7 @@ static void _analyze_func_call(global_scope_t* global, const sym_table_t* variab
         ast_node_t* argument_expr = FuncCall->args[i];
         
         datatype_t ExprType = _analyze_expression(global, variables, argument_expr);
-        if (!datatype_cmp(&ExprType, &argument_decl->type)) {
+        if (!datatype_cmp(&argument_decl->type, &ExprType)) {
             char expr_type_str[0xFF] = { 0 };
             strncpy(expr_type_str, datatype_to_str(&ExprType), ARRAY_LEN(expr_type_str));
             ANALYZER_ERROR(node->position, "Argument expected type '%s', got '%s' instead!", datatype_to_str(&argument_decl->type), expr_type_str);

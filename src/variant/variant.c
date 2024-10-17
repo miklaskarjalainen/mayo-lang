@@ -111,6 +111,11 @@ bool datatype_cmp(const datatype_t* lhs, const datatype_t* rhs) {
         return true;
     }
     if (lhs->kind != rhs->kind) {
+        // Pointer decay, an array can have pointer type, but pointer cannot be an array.
+        // @FIXME: tbh should not be here, can be confusing.
+        if (lhs->kind == DATATYPE_POINTER && rhs->kind == DATATYPE_ARRAY) {
+            return datatype_cmp(lhs->base, rhs->base);
+        }
         return false;
     }
 
