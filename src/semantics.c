@@ -136,6 +136,14 @@ static datatype_t _analyze_expression_impl(global_scope_t* global, const sym_tab
         case AST_BINARY_OP: {
             const datatype_t Lhs = _analyze_expression(global, variables, expr->data.binary_op.left);
             const datatype_t Rhs = _analyze_expression(global, variables, expr->data.binary_op.right);
+
+            if (expr->data.binary_op.operation == BINARY_OP_ARRAY_INDEX) {
+                if (Lhs.kind != DATATYPE_ARRAY) {
+                    ANALYZER_ERROR(expr->position, "Array index: array expected!");
+                }
+                return *Lhs.base;
+            }
+
             if (!datatype_cmp(&Lhs, &Rhs)) {
                 ANALYZER_ERROR(expr->position, "Type mismatch!");
             }

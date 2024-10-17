@@ -121,6 +121,74 @@ static const char* _get_store_ins(const datatype_t* register_type) {
     return 0;
 }
 
+static const char* _get_load_ins(const datatype_t* register_type) {
+    switch (register_type->kind) {
+        case DATATYPE_ARRAY:
+        case DATATYPE_POINTER: {
+            return "loadl";
+        }
+
+        case DATATYPE_PRIMITIVE: {
+#define IF_TYPE_RET(s1, ret) if (strcmp(register_type->typename, s1) == 0) { return ret; } 
+            IF_TYPE_RET("char", "=w loadub");
+            IF_TYPE_RET("i8"  , "=w loadsb");
+            IF_TYPE_RET("u8"  , "=w loadub");
+            IF_TYPE_RET("i16" , "=w loadsh");
+            IF_TYPE_RET("u16" , "=w loaduh");
+            IF_TYPE_RET("i32" , "=w loadsw");
+            IF_TYPE_RET("u32" , "=w loaduw");
+            IF_TYPE_RET("i64" , "=l loadl");
+            IF_TYPE_RET("u64" , "=l loadl");
+
+            IF_TYPE_RET("f32" , "=s loads");
+            IF_TYPE_RET("f64" , "=d loadd");
+#undef IF_TYPE_RET
+            PANIC("Size not implemented for type '%s'", register_type->typename);
+        }
+
+        default: {
+            UNIMPLEMENTED("Invalid type");
+        }
+    }
+
+    return 0;
+}
+
+static temporary_t _get_array_ptr(FILE* f, temporary_t array_ptr, temporary_t index_temp, const datatype_t* element_type) {
+    // @FIXME: Casts a temporary to long, even thought it already might be :)
+    // Index operator: e.g
+    // %ptr =l add %arr_begin, (size_of*i)
+    
+    // Casted index
+    temporary_t casted_index = get_temporary();
+    fprintf(f, "\t");
+    fprint_temp(f, casted_index);
+    fprintf(f, "=l extsw "); //! 'extsw' converts a signed word to a long here.
+    fprint_temp(f, index_temp);
+
+    // Multiply index with size of an element in the array
+    const size_t ElementSize = _get_type_size(element_type);
+    if (ElementSize > 1) {
+        fprintf(f, "\n\t");
+        fprint_temp(f, casted_index);
+        fprintf(f, "=l mul %zu, ", ElementSize);
+        fprintf(f, ", ");
+        fprint_temp(f, casted_index);
+    }
+
+    // Get address for index
+    temporary_t ptr = get_temporary();
+    fprintf(f, "\n\t");
+    fprint_temp(f, ptr);
+    fprintf(f, "=l add ");
+    fprint_temp(f, array_ptr);
+    fprintf(f, ", ");
+    fprint_temp(f, casted_index);
+    fprintf(f, " # Index nth\n");
+
+    return ptr;
+}
+
 static size_t _find_variable(const char* name, qbe_variable_t** variables) {
     // Search for temp
     size_t VarLen = arrlenu(variables);
@@ -242,39 +310,74 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, qbe_variable_t*
 
         case AST_BINARY_OP: {
             if (ast->data.binary_op.operation == BINARY_OP_ASSIGN) {
-                const char* VarName = ast->data.binary_op.left->data.literal;
-                const size_t Place = _find_variable(VarName, variables);
-                if (Place == (size_t)-1) {
-                    PANIC("no temporary for variable '%s'!", VarName);
-                }
+                const ast_node_t* Lhs = ast->data.binary_op.left;
+                DEBUG_ASSERT(
+                    Lhs->kind == AST_GET_VARIABLE || 
+                    (Lhs->kind == AST_BINARY_OP && Lhs->data.binary_op.operation == BINARY_OP_ARRAY_INDEX),
+                    "Invalid assignment!"
+                );
 
                 const temporary_t Temp = _generate_expr_node(f, ast->data.binary_op.right, variables);
-                fprintf(f, "\t");
-                fprint_temp(f, (*variables)[Place].temp);
-                fprintf(f, " =w copy ");
+                if (Lhs->kind == AST_BINARY_OP && Lhs->data.binary_op.operation == BINARY_OP_ARRAY_INDEX) {
+                    // Get ptr to index
+                    const ast_node_t* ArrayIndexAst = ast->data.binary_op.left;
+                    const datatype_t ElementType = ArrayIndexAst->expr_type;
+                    temporary_t array_temp = _generate_expr_node(f, ArrayIndexAst->data.binary_op.left, variables);
+                    temporary_t index_temp = _generate_expr_node(f, ArrayIndexAst->data.binary_op.right, variables);
+                    temporary_t ptr_temp = _get_array_ptr(f, array_temp, index_temp, &ElementType);
+
+                    // Eval expr
+                    temporary_t expr_temp = _generate_expr_node(f, ast->data.binary_op.right, variables);
+                    
+                    // Store
+                    fprintf(f, "\t%s ", _get_store_ins(&ElementType));
+                    fprint_temp(f, expr_temp);
+                    fprintf(f, ", ");
+                    fprint_temp(f, ptr_temp);
+                    fprintf(f, "\n");
+                    return ptr_temp;
+                }
+                else {
+                    const char* VarName = ast->data.binary_op.left->data.literal;
+                    const size_t Place = _find_variable(VarName, variables);
+                    if (Place == (size_t)-1) {
+                        PANIC("no temporary for variable '%s'!", VarName);
+                    }
+                    fprintf(f, "\t");
+                    fprint_temp(f, (*variables)[Place].temp);
+                }
+
+                fprintf(f, "=w copy ");
                 fprint_temp(f, Temp);
                 fprintf(f, "\n");
                 return Temp;
             }
-            
+
             temporary_t lhs = _generate_expr_node(f, ast->data.binary_op.left, variables);
             temporary_t rhs = _generate_expr_node(f, ast->data.binary_op.right, variables);
-            temporary_t r = get_temporary();
 
-            
-            fprintf(f, "\t");
-            fprint_temp(f, r);
-            
+            char* qbe_operation = NULL;
             switch (ast->data.binary_op.operation) {
-                case BINARY_OP_ADD: { fprintf(f, "=w add "); break; }
-                case BINARY_OP_SUBTRACT: { fprintf(f, "=w sub "); break; }
-                case BINARY_OP_MULTIPLY: { fprintf(f, "=w mul "); break; }
-                case BINARY_OP_EQUAL: { fprintf(f, "=w ceqw "); break; }
-                case BINARY_OP_NOT_EQUAL: { fprintf(f, "=w cnew "); break; }
+                case BINARY_OP_ADD      : { qbe_operation = "=w add"; break; }
+                case BINARY_OP_SUBTRACT : { qbe_operation = "=w sub "; break; }
+                case BINARY_OP_MULTIPLY : { qbe_operation = "=w mul "; break; }
+                case BINARY_OP_EQUAL    : { qbe_operation = "=w ceqw "; break; }
+                case BINARY_OP_NOT_EQUAL: { qbe_operation = "=w cnew "; break; }
 
-                case BINARY_OP_ASSIGN: { 
-                    fprintf(f, "=w ");
-                    break;
+                case BINARY_OP_ASSIGN   : { qbe_operation = "=w "; break; }
+
+                case BINARY_OP_ARRAY_INDEX: {
+                    temporary_t ptr = _get_array_ptr(f, lhs, rhs, &ast->expr_type);
+
+                    // Get memory from that index
+                    temporary_t result = get_temporary();
+                    fprintf(f, "\t");
+                    fprint_temp(f, result);
+                    fprintf(f, "%s ", _get_load_ins(&ast->expr_type));
+                    fprint_temp(f, ptr);
+                    fprintf(f, "# indexed element\n");
+
+                    return result;
                 }
 
                 default: {
@@ -282,6 +385,10 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, qbe_variable_t*
                 }
             }
 
+            temporary_t r = get_temporary();
+            fprintf(f, "\t");
+            fprint_temp(f, r);
+            fprintf(f, "%s", qbe_operation);
             fprint_temp(f, lhs);
             fprintf(f, ", ");
             fprint_temp(f, rhs);
