@@ -1,0 +1,21 @@
+extern fn putchar(c: i32) -> i32;
+extern fn puts(str: char*) -> i32;
+
+fn main() -> i32 {
+  // hello
+  let hello: char[6] = ['h', 'e', 'l', 'l', 'o', '\0'];
+  puts(cast<char*>(&hello));
+
+  // xd
+  putchar(cast<i32>('x'));
+  putchar(cast<i32>('d'));
+  putchar(cast<i32>('\n'));
+
+  // modify array
+  hello[0] = 'y';
+  puts(cast<char*>(&hello));
+  putchar(cast<i32>(hello[1]));
+  putchar(cast<i32>('\n'));
+  
+  return 0;
+}
