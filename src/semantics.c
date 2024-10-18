@@ -33,13 +33,22 @@ static bool _analyze_is_valid_type(const global_scope_t* global, const datatype_
     const datatype_t* TrueType = datatype_underlying_type(type);
     DEBUG_ASSERT(TrueType->kind == DATATYPE_PRIMITIVE, "?");
 
+    if (strcmp(TrueType->typename, "u8") == 0) {
+        return true;
+    }
+    if (strcmp(TrueType->typename, "u16") == 0) {
+        return true;
+    }
     if (strcmp(TrueType->typename, "i32") == 0) {
         return true;
     }
-    else if (strcmp(TrueType->typename, "bool") == 0) {
+    if (strcmp(TrueType->typename, "i64") == 0) {
         return true;
     }
-    else if (strcmp(TrueType->typename, "char") == 0) {
+    if (strcmp(TrueType->typename, "bool") == 0) {
+        return true;
+    }
+    if (strcmp(TrueType->typename, "char") == 0) {
         return true;
     }
 
@@ -75,7 +84,11 @@ static void _analyze_func_call(global_scope_t* global, const sym_table_t* variab
             strncpy(expr_type_str, datatype_to_str(&ExprType), ARRAY_LEN(expr_type_str));
             ANALYZER_ERROR(node->position, "Argument expected type '%s', got '%s' instead!", datatype_to_str(&argument_decl->type), expr_type_str);
         }
+        argument_expr->expr_type = FuncDecl->data.function_declaration.args[i].data.variable_declaration.type;
     }
+
+    // @HACK: also set in _analyze_expression, but _analyze_func_call can also be called somewhere else.
+    node->expr_type = FuncDecl->data.function_declaration.return_type;
 }
 
 static datatype_t _analyze_expression_impl(global_scope_t* global, const sym_table_t* variables, ast_node_t* expr) {
@@ -303,6 +316,13 @@ static datatype_t _analyze_expression_impl(global_scope_t* global, const sym_tab
                     ) {
                     return TargetType;
                 }
+                // i32 <-> u8
+                if (
+                    (!strcmp(TargetType.typename, "u8") && !strcmp(ExprType.typename, "i32")) ||
+                    (!strcmp(TargetType.typename, "i32") && !strcmp(ExprType.typename, "u8"))
+                    ) {
+                    return TargetType;
+                }
             }
 
             ANALYZER_ERROR(expr->position, "Expression cannot be cast to type %s", datatype_to_str(&TargetType));
@@ -326,8 +346,6 @@ static void _analyze_scoped_node(ast_node_t* node, global_scope_t* global, sym_t
     if (!node) {
         return;
     }
-
-    UNUSED(global);
 
     switch (node->kind) {
         case AST_VARIABLE_DECLARATION: {
@@ -380,6 +398,18 @@ static void _analyze_scoped_node(ast_node_t* node, global_scope_t* global, sym_t
             break;
         }
 
+        case AST_WHILE_LOOP: {
+            // expr
+            _analyze_expression(global, variables, node->data.while_loop.expr);
+
+            sym_table_t loop_scope = { 0 };
+            sym_table_init(&loop_scope);
+            loop_scope.parent = variables;
+            CALL_ON_BODY(_analyze_scoped_node, node->data.while_loop.body, global, &loop_scope);
+            sym_table_cleanup(&loop_scope);
+            break;
+        }
+
         case AST_FUNCTION_CALL: {
             _analyze_func_call(global, variables, node);
             break;
@@ -397,6 +427,7 @@ static void _analyze_scoped_node(ast_node_t* node, global_scope_t* global, sym_t
         }
 
         default: {
+            ANALYZER_ERROR(node->position, "Unhandled!");
             break;
         }
     }
@@ -435,7 +466,7 @@ static void _analyze_global_node(ast_node_t* node, global_scope_t* global) {
             }
             sym_table_insert(&global->functions, node->data.function_declaration.name, node);
             
-            // Check parameters & Arguments to the function's scope
+            // Check parameters & add them to the function's scope
             sym_table_t fn_scope;
             sym_table_init(&fn_scope);
             const size_t Size = arrlenu(node->data.function_declaration.args);
@@ -467,6 +498,7 @@ static void _analyze_global_node(ast_node_t* node, global_scope_t* global) {
         }
 
         default: {
+            PANIC("Unhandled node!");
             break;
         }
     }
