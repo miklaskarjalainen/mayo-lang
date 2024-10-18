@@ -137,6 +137,17 @@ static size_t _get_type_member_offset(aggregate_type_t* t, const char* member_na
     return offset;
 }
 
+static size_t _get_type_member_index(aggregate_type_t* t, const char* member_name) {
+    const size_t MemberCount = arrlenu(t->ast->members);
+    for (size_t i = 0; i < MemberCount; i++) {
+        // @FIXME: aggregate types cannot contain other aggregate types.
+        if (strcmp(t->ast->members[i].name, member_name) == 0) {
+            return i;
+        }
+    }
+    PANIC("not found!");
+    return 0;
+}
 
 static const char* _get_store_ins(const datatype_t* register_type) {
     switch (register_type->kind) {
@@ -227,11 +238,11 @@ static char _get_base_type(const datatype_t* register_type) {
             IF_TYPE_RET("f32" , 's');
             IF_TYPE_RET("f64" , 'd');
 #undef IF_TYPE_RET
-            PANIC("Size not implemented for type '%s'", register_type->typename);
+            return '\0';
         }
 
         default: {
-            UNIMPLEMENTED("Invalid type");
+            PANIC("Invalid type %u!", register_type->kind);
         }
     }
 
@@ -526,14 +537,25 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
             }
 
             // 
+            const char TempType = 'w'; // TODO:
             temporary_t r = get_temporary();
             fprintf(f, "\t");
             fprint_temp(f, r);
-            fprintf(f, "=w call $%s(", FuncCall->name);
+            if (TempType == '\0') {
+                fprintf(f, "=:%s call $%s(", ast->expr_type.typename, FuncCall->name);
+            } else {
+                fprintf(f, "=%c call $%s(", TempType, FuncCall->name);
+            }
 
             // Pass arguments to the function call
             for (size_t i = 0; i < ArgCount; i++) {
-                fprintf(f, "w ");
+                const ast_node_t* Expr = FuncCall->args[i];
+                const char ArgType = _get_base_type(&Expr->expr_type);
+                if (ArgType == '\0') {
+                    fprintf(f, ":%s ", Expr->expr_type.typename);
+                } else {
+                    fprintf(f, "%c ", ArgType);
+                }
                 fprint_temp(f, arg_temps[i]);
                 fprintf(f, ", ");
             }
@@ -663,8 +685,9 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
             // Initialize members
             const size_t ExprCount = arrlenu(InitList->fields);
             for (size_t i = 0; i < ExprCount; i++) {
-                const temporary_t Res = _generate_expr_node(f, InitList->fields[i].expr, ctx);
                 const size_t Offset = _get_type_member_offset(type, InitList->fields[i].name);
+                const size_t MemberIndex = _get_type_member_index(type, InitList->fields[i].name);
+                const temporary_t Res = _generate_expr_node(f, InitList->fields[i].expr, ctx);
 
                 // Ptr
                 const temporary_t PtrAdd = get_temporary();
@@ -675,7 +698,7 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
                 fprintf(f, ", %zu\n", Offset);
                 
                 // Store @FIXME: type specific store
-                fprintf(f, "\tstorew ");
+                fprintf(f, "\t%s ", _get_store_ins(&type->ast->members[MemberIndex].type));
                 fprint_temp(f, Res);
                 fprintf(f, ", ");
                 fprint_temp(f, PtrAdd);
