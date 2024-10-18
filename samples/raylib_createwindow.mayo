@@ -1,0 +1,20 @@
+extern fn InitWindow(width: i32, height: i32, title: char* ) -> i32;
+extern fn BeginDrawing() -> i32;
+extern fn EndDrawing() -> i32;
+extern fn CloseWindow() -> i32;
+extern fn DrawFPS(x: i32, y: i32) -> i32;
+extern fn ClearBackground(c: i32) -> i32;
+
+fn main() -> i32 {
+  InitWindow(640, 480, "My Window");
+
+  while WindowShouldClose() == 0 {
+    BeginDrawing();
+      ClearBackground(0);
+      DrawFPS(48, 48);
+    EndDrawing();
+  }
+
+  CloseWindow();
+  return 0;
+}
