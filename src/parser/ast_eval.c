@@ -47,7 +47,7 @@ static op_t token_to_op_binary(const token_t* tk) {
         case TOK_EQUALS          : { return BINARY_OP_ASSIGN; }
 
         default: {
-            PANIC("unkown binary operator %s", token_kind_to_str(tk->kind));
+            PARSER_ASSERT(false, tk->position, "unkown binary operator %s", token_kind_to_str(tk->kind));
             break;
         }
     }
