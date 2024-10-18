@@ -135,8 +135,35 @@ static datatype_t _analyze_expression_impl(global_scope_t* global, const sym_tab
 
         case AST_BINARY_OP: {
             const datatype_t Lhs = _analyze_expression(global, variables, expr->data.binary_op.left);
-            const datatype_t Rhs = _analyze_expression(global, variables, expr->data.binary_op.right);
+            if (expr->data.binary_op.operation == BINARY_OP_GET_MEMBER) {
+                DEBUG_ASSERT(expr->data.binary_op.right->kind == AST_GET_VARIABLE, "?");
 
+                // Find member
+                const char* GetMemberName = expr->data.binary_op.right->data.literal;
+                if (Lhs.kind != DATATYPE_PRIMITIVE) {
+                    ANALYZER_ERROR(expr->position, "Structure expected!");
+                }
+                const ast_node_t* Decl = sym_table_get(&global->structs, Lhs.typename);
+                if (!Decl){
+                    ANALYZER_ERROR(expr->position, "No typename '%s' is defined!", Lhs.typename);
+                }
+
+                // Find field type
+                DEBUG_ASSERT(Decl->kind == AST_STRUCT_DECLARATION, "?");
+                const size_t MemberCount = arrlenu(Decl->data.struct_declaration.members);
+                for (size_t i = 0; i < MemberCount; i++) {
+                    const ast_variable_declaration_t* MemberDecl = &Decl->data.struct_declaration.members[i];
+                    if (strcmp(MemberDecl->name, GetMemberName) == 0) {
+                        return MemberDecl->type;
+                    }
+                }
+
+                ANALYZER_ERROR(expr->data.binary_op.right->position, "No variable has no member called '%s'!", GetMemberName);
+                return (datatype_t){ 0 };
+            }
+            
+            
+            const datatype_t Rhs = _analyze_expression(global, variables, expr->data.binary_op.right);
             if (expr->data.binary_op.operation == BINARY_OP_ARRAY_INDEX) {
                 if (Lhs.kind != DATATYPE_ARRAY) {
                     ANALYZER_ERROR(expr->position, "Array index: array expected!");
