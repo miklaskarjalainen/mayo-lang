@@ -307,6 +307,14 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
             return _generate_expr_node(f, ast->data.unary_op.operand, ctx); 
         }
 
+        case AST_BOOL_LITERAL: {
+            temporary_t r = get_temporary();
+            fprintf(f, "\t");
+            fprint_temp(f, r);
+            fprintf(f, "=w copy %u\n", ast->data.boolean ? 1 : 0);
+            return r;
+        }
+
         case AST_CHAR_LITERAL: {
             temporary_t r = get_temporary();
             fprintf(f, "\t");

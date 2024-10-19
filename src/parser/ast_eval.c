@@ -106,6 +106,13 @@ static ast_node_t* ast_parse_primary(parser_t* parser) {
     token_t tk = parser_eat(parser);
 
     switch (tk.kind) {
+        case TOK_CONST_BOOLEAN: {
+            ast_node_t* ast = ast_arena_new(parser->arena, AST_BOOL_LITERAL);
+            ast->data.boolean = tk.data.boolean;
+            ast->position = tk.position;
+            return ast;
+        }
+        
         case TOK_CONST_CHAR: {
             ast_node_t* ast = ast_arena_new(parser->arena, AST_CHAR_LITERAL);
             ast->data.c = tk.data.c;

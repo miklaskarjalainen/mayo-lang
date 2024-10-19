@@ -102,6 +102,8 @@ static datatype_t _analyze_expression_impl(global_scope_t* global, const sym_tab
     };
 
     switch (expr->kind) {
+        case AST_BOOL_LITERAL: { return BoolType; };
+
         case AST_CHAR_LITERAL: { return CharType; };
 
         case AST_INTEGER_LITERAL: {
@@ -302,6 +304,13 @@ static datatype_t _analyze_expression_impl(global_scope_t* global, const sym_tab
                 return TargetType;
             }
             if (TargetType.kind == DATATYPE_PRIMITIVE && ExprType.kind == DATATYPE_PRIMITIVE) {
+                // i32 <-> bool
+                if (
+                    (!strcmp(TargetType.typename, "bool") && !strcmp(ExprType.typename, "i32")) ||
+                    (!strcmp(TargetType.typename, "i32") && !strcmp(ExprType.typename, "bool"))
+                    ) {
+                    return TargetType;
+                }
                 // i32 <-> char
                 if (
                     (!strcmp(TargetType.typename, "char") && !strcmp(ExprType.typename, "i32")) ||

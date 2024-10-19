@@ -112,20 +112,16 @@ static void lexer_flush(lexer_t* lexer) {
         arrpush(lexer->tokens, tk);
     }
     // Booleans
-    /*
     else if (!strcmp(lexer->word.chars, "true")) {
-        tk.kind = TOK_CONST_VALUE;
-        tk.variant = variant_core(CORETYPE_BOOL);
-        tk.variant.value.boolean = true;
+        tk.kind = TOK_CONST_BOOLEAN;
+        tk.data.boolean = true;
         arrpush(lexer->tokens, tk);
     }
     else if (!strcmp(lexer->word.chars, "false")) {
-        tk.kind = TOK_CONST_VALUE;
-        tk.variant = variant_core(CORETYPE_BOOL);
-        tk.variant.value.boolean = false;
+        tk.kind = TOK_CONST_BOOLEAN;
+        tk.data.boolean = false;
         arrpush(lexer->tokens, tk);
     }
-    */
     //@TODO: Unsigned integers
     //@TODO: Postfixes like "0u64", "10.0f32" 
     else if (is_integer(lexer->word.chars)) {

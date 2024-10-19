@@ -15,8 +15,9 @@ typedef enum token_kind_t {
 typedef struct token_t {
     token_kind_t kind;
     union {
-        int64_t integer;
+        bool boolean;
         char c;
+        int64_t integer;
         char* str; 
     } data;
     file_position_t position;
