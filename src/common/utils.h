@@ -47,7 +47,8 @@
 #define CMD(cmd)                \
     do {                        \
         TEST("[CMD] %s", cmd);  \
-        system(cmd);            \
+        int x = system(cmd);    \
+        UNUSED(x);              \
     } while(0)
 
 bool is_file(const char *path);
