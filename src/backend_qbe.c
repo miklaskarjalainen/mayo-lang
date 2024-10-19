@@ -249,6 +249,43 @@ static char _get_base_type(const datatype_t* register_type) {
     return 0;
 }
 
+// base types + "sb" | "ub" | "sh" | "uh" + aggregate
+static const char* _get_abi_type(const datatype_t* register_type) {
+    switch (register_type->kind) {
+        case DATATYPE_ARRAY:
+        case DATATYPE_POINTER: {
+            return "l";
+        }
+
+        case DATATYPE_PRIMITIVE: {
+#define IF_TYPE_RET(s1, ret) if (strcmp(register_type->typename, s1) == 0) { return ret; } 
+            IF_TYPE_RET("bool", "ub");
+            IF_TYPE_RET("char", "ub");
+            IF_TYPE_RET("i8"  , "sb");
+            IF_TYPE_RET("u8"  , "ub");
+            IF_TYPE_RET("i16" , "sh");
+            IF_TYPE_RET("u16" , "uh");
+            IF_TYPE_RET("i32" , "w");
+            IF_TYPE_RET("u32" , "w");
+            IF_TYPE_RET("i64" , "l");
+            IF_TYPE_RET("u64" , "l");
+
+            IF_TYPE_RET("f32" , "s");
+            IF_TYPE_RET("f64" , "d");
+
+#undef IF_TYPE_RET
+            PANIC("Add aggregate types! (%s)", register_type->typename);
+            return register_type->typename;
+        }
+
+        default: {
+            PANIC("Invalid type %u!", register_type->kind);
+        }
+    }
+
+    return 0;
+}
+
 static temporary_t _get_array_ptr(FILE* f, temporary_t array_ptr, temporary_t index_temp, const datatype_t* element_type) {
     // @FIXME: Casts a temporary to long, even thought it already might be :)
     // Index operator: e.g
@@ -459,14 +496,16 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
             temporary_t lhs = _generate_expr_node(f, ast->data.binary_op.left, ctx);
 
             char* qbe_operation = NULL;
+            bool is_comparision = false;
             switch (ast->data.binary_op.operation) {
                 case BINARY_OP_ADD      : { qbe_operation = "=w add"; break; }
                 case BINARY_OP_SUBTRACT : { qbe_operation = "=w sub "; break; }
                 case BINARY_OP_MULTIPLY : { qbe_operation = "=w mul "; break; }
-                case BINARY_OP_EQUAL    : { qbe_operation = "=w ceqw "; break; }
-                case BINARY_OP_NOT_EQUAL: { qbe_operation = "=w cnew "; break; }
-
                 case BINARY_OP_ASSIGN   : { qbe_operation = "=w "; break; }
+
+                case BINARY_OP_EQUAL    : { is_comparision = true; qbe_operation = "=w ceqw "; break; }
+                case BINARY_OP_NOT_EQUAL: { is_comparision = true; qbe_operation = "=w cnew "; break; }
+
 
                 case BINARY_OP_ARRAY_INDEX: {
                     temporary_t rhs = _generate_expr_node(f, ast->data.binary_op.right, ctx);
@@ -522,8 +561,41 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
             }
 
             temporary_t rhs = _generate_expr_node(f, ast->data.binary_op.right, ctx);
-            temporary_t r = get_temporary();
 
+            // cast to right type lengths
+            if (is_comparision) {
+                const datatype_t* LhsType = &ast->data.binary_op.left->expr_type;
+                const datatype_t* RhsType = &ast->data.binary_op.right->expr_type;
+
+                if (LhsType->kind == DATATYPE_PRIMITIVE && RhsType->kind == DATATYPE_PRIMITIVE) {
+                #define IF_TYPE(comp_type, ins)                         \
+                    if (strcmp(LhsType->typename, comp_type) == 0) {    \
+                        fprintf(f, "\t");                               \
+                        fprint_temp(f, lhs);                            \
+                        fprintf(f, " =w " ins " ");                     \
+                        fprint_temp(f, lhs);                            \
+                        fprintf(f, "\n");                               \
+                    }                                                   \
+                    if (strcmp(RhsType->typename, comp_type) == 0) {    \
+                        fprintf(f, "\t");                               \
+                        fprint_temp(f, rhs);                            \
+                        fprintf(f, " =w " ins " ");                     \
+                        fprint_temp(f, rhs);                            \
+                        fprintf(f, "\n");                               \
+                    }
+
+                    IF_TYPE("bool", "extub");
+                    IF_TYPE("char", "extub");
+                    IF_TYPE("u8", "extub");
+                    IF_TYPE("i8", "extsb");
+                    IF_TYPE("u16", "extuh");
+                    IF_TYPE("i16", "extsh");
+
+                #undef IF_TYPE
+                }
+            }
+
+            temporary_t r = get_temporary();
             fprintf(f, "\t");
             fprint_temp(f, r);
             fprintf(f, "%s", qbe_operation);
@@ -545,15 +617,10 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
             }
 
             // 
-            const char TempType = 'w'; // TODO:
             temporary_t r = get_temporary();
             fprintf(f, "\t");
             fprint_temp(f, r);
-            if (TempType == '\0') {
-                fprintf(f, "=:%s call $%s(", ast->expr_type.typename, FuncCall->name);
-            } else {
-                fprintf(f, "=%c call $%s(", TempType, FuncCall->name);
-            }
+            fprintf(f, "=%s call $%s(", _get_abi_type(&ast->expr_type), FuncCall->name);
 
             // Pass arguments to the function call
             for (size_t i = 0; i < ArgCount; i++) {
@@ -752,7 +819,10 @@ static void _generate_ast_global_node(FILE* f, ast_node_t* ast, backend_ctx_t* c
                 fprintf(f, "export ");
             }
 
-            fprintf(f, "function w $%s(", FuncDecl->name);
+            // TODO: returns custom types
+            fprintf(f, "function ");
+            fprintf(f, "%s $%s(", _get_abi_type(&FuncDecl->return_type), FuncDecl->name);
+
             const size_t ArrCount = arrlenu(FuncDecl->args);
             for (size_t i = 0; i < ArrCount; i++) {
                 const char* ArgName = FuncDecl->args[i].data.variable_declaration.name;
