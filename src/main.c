@@ -78,7 +78,7 @@ int main(int argc, char** argv) {
         parse_duration = PERF_END(ParseBegin);
 
         PERF_BEGIN(AnalysisBegin);
-        semantic_analysis(parser.node_root);
+        semantic_analysis(&arena, parser.node_root);
         analysis_duration = PERF_END(AnalysisBegin);
         
         // Output qbe
