@@ -1,0 +1,69 @@
+struct Color {
+  r: u8, g: u8, b: u8, a: u8
+}
+
+struct Player {
+  x: i32,
+  y: i32
+}
+
+extern fn InitWindow(width: i32, height: i32, title: char* ) -> i32;
+extern fn BeginDrawing() -> i32;
+extern fn EndDrawing() -> i32;
+extern fn CloseWindow() -> i32;
+extern fn DrawFPS(x: i32, y: i32) -> i32;
+extern fn ClearBackground(c: Color) -> i32;
+extern fn WindowShouldClose() -> i32;
+extern fn SetTargetFPS(i: i32) -> i32;
+extern fn DrawRectangle(posX: i32, posY: i32, width: i32, height: i32, c: Color) -> i32;
+extern fn IsKeyDown(k: i32) -> bool;
+
+extern fn puts(str: char*) -> i32;
+extern fn putchar(c: char) -> i32;
+
+fn main() -> i32 {
+  let clear_color: Color  = Color {
+    r: cast<u8>(217),
+    g: cast<u8>(217),
+    b: cast<u8>(217),
+    a: cast<u8>(255)
+  };
+  let black: Color  = Color {
+    r: cast<u8>(14),
+    g: cast<u8>(14),
+    b: cast<u8>(14),
+    a: cast<u8>(255)
+  };
+
+  InitWindow(640, 480, "My Window");
+  SetTargetFPS(60);
+
+  let pl: Player = Player{
+    x: 0,
+    y: 0
+  };
+
+  while WindowShouldClose() == 0 {
+    BeginDrawing();
+      ClearBackground(clear_color);
+      if IsKeyDown(262) == true {
+        pl.x = pl.x + 1;
+      }
+      if IsKeyDown(263) == true { 
+        pl.x = pl.x - 1;
+      }
+      if IsKeyDown(265) == true { 
+        pl.y = pl.y - 1;
+      }
+      if IsKeyDown(264) == true { 
+        pl.y = pl.y + 1;
+      }
+
+      DrawRectangle(pl.x, pl.y, 60, 60, black);
+      DrawFPS(48, 48);
+    EndDrawing();
+  }
+  CloseWindow();
+  return 0;
+}
+

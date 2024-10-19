@@ -17,7 +17,7 @@ typedef struct label_t {
 } label_t;
 
 typedef struct variable_t {
-    const char* var_name;
+    ast_variable_declaration_t* var_decl;
     temporary_t temp;
 } variable_t;
 
@@ -123,7 +123,7 @@ static size_t _get_aggregate_type_size(aggregate_type_t* t) {
     return size;
 }
 
-static size_t _get_type_member_offset(aggregate_type_t* t, const char* member_name) {
+static size_t _get_type_member_offset(const aggregate_type_t* t, const char* member_name) {
     const size_t MemberCount = arrlenu(t->ast->members);
 
     size_t offset = 0;
@@ -286,6 +286,32 @@ static const char* _get_abi_type(const datatype_t* register_type) {
     return 0;
 }
 
+static temporary_t _get_ptr_with_offset(FILE* f, temporary_t begin_ptr, temporary_t offset) {
+    // @FIXME: Casts a temporary to long, even thought it already might be :)
+    // Produces the following code:
+    //  %casted_offset =l extsw % offset
+    //  %ptr_with_offset =l add %arr_begin, %offset 
+
+    // Casted index
+    temporary_t casted_index = get_temporary();
+    fprintf(f, "\t");
+    fprint_temp(f, casted_index);
+    fprintf(f, "=l extsw "); //! 'extsw' converts a signed word to a long here.
+    fprint_temp(f, offset);
+
+    // Get address for index
+    temporary_t ptr = get_temporary();
+    fprintf(f, "\n\t");
+    fprint_temp(f, ptr);
+    fprintf(f, "=l add ");
+    fprint_temp(f, begin_ptr);
+    fprintf(f, ", ");
+    fprint_temp(f, casted_index);
+    fprintf(f, "\n");
+
+    return ptr;
+}
+
 static temporary_t _get_array_ptr(FILE* f, temporary_t array_ptr, temporary_t index_temp, const datatype_t* element_type) {
     // @FIXME: Casts a temporary to long, even thought it already might be :)
     // Index operator: e.g
@@ -321,16 +347,28 @@ static temporary_t _get_array_ptr(FILE* f, temporary_t array_ptr, temporary_t in
     return ptr;
 }
 
-static size_t _find_variable(const char* name, backend_ctx_t* ctx) {
+static variable_t* _find_variable(const char* name, backend_ctx_t* ctx) {
     // Search for temp
     size_t VarLen = arrlenu(ctx->variables);
     for (size_t i = 0; i < VarLen; i++) {
-        if (strcmp(ctx->variables[i].var_name, name) == 0) {
-            return i;
+        if (strcmp(ctx->variables[i].var_decl->name, name) == 0) {
+            return &ctx->variables[i];
         }
     }
 
-    return -1;
+    return NULL;
+}
+
+static aggregate_type_t* _find_type(const char* name, backend_ctx_t* ctx) {
+    // Search for temp
+    size_t TypeCount = arrlenu(ctx->types);
+    for (size_t i = 0; i < TypeCount; i++) {
+        if (strcmp(ctx->types[i].ast->name, name) == 0) {
+            return &ctx->types[i];
+        }
+    }
+
+    return NULL;
 }
 
 static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* ctx) {
@@ -440,9 +478,9 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
 
         case AST_GET_VARIABLE: {
             // Search for temp
-            const size_t Place = _find_variable(ast->data.literal, ctx);
-            if (Place != (size_t)-1) {
-                return ctx->variables[Place].temp;
+            variable_t* var = _find_variable(ast->data.literal, ctx);
+            if (var) {
+                return var->temp;
             }
             PANIC("no temporary for variable '%s'!", ast->data.literal);
             break;
@@ -477,14 +515,44 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
                     fprintf(f, "\n");
                     return ptr_temp;
                 }
+                else if (Lhs->kind == AST_BINARY_OP && Lhs->data.binary_op.operation == BINARY_OP_GET_MEMBER) {
+                    // Get ptr to index
+                    const ast_node_t* GetMember = ast->data.binary_op.left;
+                    const datatype_t ElementType = GetMember->expr_type;
+                    const char* MemberName = GetMember->data.binary_op.right->data.literal;
+                    
+                    // Find struct
+                    const variable_t* Variable = _find_variable(GetMember->data.binary_op.left->data.literal, ctx);
+                    const aggregate_type_t* Type = _find_type(Variable->var_decl->type.typename, ctx);
+                    const size_t Offset = _get_type_member_offset(Type, MemberName);
+
+                    // Get index
+                    const temporary_t StructTemp = _generate_expr_node(f, GetMember->data.binary_op.left, ctx);
+                    const temporary_t OffsetTemp = get_temporary();
+                    fprintf(f, "\t");        
+                    fprint_temp(f, OffsetTemp);        
+                    fprintf(f, "=l copy %zu\n", Offset);
+                    const temporary_t PtrTemp = _get_ptr_with_offset(f, StructTemp, OffsetTemp);
+
+                    // Eval expr
+                    const temporary_t ExprTemp = _generate_expr_node(f, ast->data.binary_op.right, ctx);
+                    
+                    // Store
+                    fprintf(f, "\t%s ", _get_store_ins(&ElementType));
+                    fprint_temp(f, ExprTemp);
+                    fprintf(f, ", ");
+                    fprint_temp(f, PtrTemp);
+                    fprintf(f, "\n");
+                    return ExprTemp;
+                }
                 else {
                     const char* VarName = ast->data.binary_op.left->data.literal;
-                    const size_t Place = _find_variable(VarName, ctx);
-                    if (Place == (size_t)-1) {
+                    const variable_t* Var = _find_variable(VarName, ctx);
+                    if (!Var) {
                         PANIC("no temporary for variable '%s'!", VarName);
                     }
                     fprintf(f, "\t");
-                    fprint_temp(f, ctx->variables[Place].temp);
+                    fprint_temp(f, Var->temp);
                 }
 
                 fprintf(f, "=%c copy", _get_base_type(&ast->expr_type));
@@ -648,9 +716,8 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
         }
 
         case AST_VARIABLE_DECLARATION: {
-            const char* ArgName = ast->data.variable_declaration.name;
             temporary_t r = _generate_expr_node(f, ast->data.variable_declaration.expr, ctx);
-            const variable_t VarTemp = {.var_name = ArgName, .temp = r};
+            const variable_t VarTemp = {.var_decl = &ast->data.variable_declaration, .temp = r};
             arrput(ctx->variables, VarTemp);
             return r;
         }
@@ -825,8 +892,7 @@ static void _generate_ast_global_node(FILE* f, ast_node_t* ast, backend_ctx_t* c
 
             const size_t ArrCount = arrlenu(FuncDecl->args);
             for (size_t i = 0; i < ArrCount; i++) {
-                const char* ArgName = FuncDecl->args[i].data.variable_declaration.name;
-                const variable_t VarTemp = {.var_name = ArgName, .temp = get_temporary()};
+                const variable_t VarTemp = {.var_decl = &FuncDecl->args[i].data.variable_declaration, .temp = get_temporary()};
                 arrput(ctx->variables, VarTemp);
 
                 fprintf(f, "w ");
