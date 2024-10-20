@@ -491,7 +491,8 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
                 const ast_node_t* Lhs = ast->data.binary_op.left;
                 DEBUG_ASSERT(
                     Lhs->kind == AST_GET_VARIABLE || 
-                    (Lhs->kind == AST_BINARY_OP && Lhs->data.binary_op.operation == BINARY_OP_ARRAY_INDEX),
+                    (Lhs->kind == AST_BINARY_OP && Lhs->data.binary_op.operation == BINARY_OP_ARRAY_INDEX) ||
+                    (Lhs->kind == AST_BINARY_OP && Lhs->data.binary_op.operation == BINARY_OP_GET_MEMBER),
                     "Invalid assignment!"
                 );
 
