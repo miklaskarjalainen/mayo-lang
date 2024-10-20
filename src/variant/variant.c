@@ -33,6 +33,14 @@ static void _impl_datatype_to_str(const datatype_t* datatype, char* buffer, size
             break;
         }
 
+        case DATATYPE_VARIADIC: {
+            (buffer + *len)[0] = '.';
+            (buffer + *len)[1] = '.';
+            (buffer + *len)[2] = '.';
+            *len += 3;
+            break;
+        }
+
         default: {
             PANIC("?");
             break;
@@ -79,6 +87,11 @@ void datatype_print(const datatype_t* datatype) {
 
         case DATATYPE_PRIMITIVE: {
             printf("%s", datatype->typename);
+            break;
+        }
+
+        case DATATYPE_VARIADIC: {
+            printf("...");
             break;
         }
 
@@ -131,6 +144,9 @@ bool datatype_cmp(const datatype_t* lhs, const datatype_t* rhs) {
         }
         case DATATYPE_PRIMITIVE: {
             return strcmp(lhs->typename, rhs->typename) == 0;
+        }
+        case DATATYPE_VARIADIC: {
+            return false;
         }
 
         default: {

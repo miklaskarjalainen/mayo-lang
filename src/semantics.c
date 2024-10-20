@@ -31,6 +31,9 @@ static datatype_t _analyze_expression(global_scope_t* global, const sym_table_t*
 
 static bool _analyze_is_valid_type(const global_scope_t* global, const datatype_t* type) {
     const datatype_t* TrueType = datatype_underlying_type(type);
+    if (type->kind == DATATYPE_VARIADIC) {
+        return true;
+    }
     DEBUG_ASSERT(TrueType->kind == DATATYPE_PRIMITIVE, "?");
 
     if (strcmp(TrueType->typename, "u8") == 0) {
@@ -69,22 +72,42 @@ static void _analyze_func_call(global_scope_t* global, const sym_table_t* variab
     // Check that the args match function declaration.
     const size_t CallArgCount = arrlenu(FuncCall->args);
     const size_t DeclArgCount = arrlenu(FuncDecl->data.function_declaration.args);
+    const bool IsVariadic = FuncDecl->data.function_declaration.args[DeclArgCount-1].data.variable_declaration.type.kind == DATATYPE_VARIADIC;
     
-    if (CallArgCount != DeclArgCount) {
+    if (!IsVariadic && (CallArgCount != DeclArgCount)) {
         ANALYZER_ERROR(node->position, "function takes %zu arguments but %zu were given!", DeclArgCount, CallArgCount);
+    }
+    if (IsVariadic && (CallArgCount < DeclArgCount-1)) {
+        ANALYZER_ERROR(node->position, "variadic function takes atleast %zu arguments but %zu were given!", DeclArgCount-1, CallArgCount);
     }
 
     for (size_t i = 0; i < CallArgCount; i++) {
+        // Arguments for the variadic part are not type-checked.
+        const bool CheckArgType = IsVariadic && (DeclArgCount - 1 > i);
+
         ast_variable_declaration_t* argument_decl = &FuncDecl->data.function_declaration.args[i].data.variable_declaration;
         ast_node_t* argument_expr = FuncCall->args[i];
         
         datatype_t ExprType = _analyze_expression(global, variables, argument_expr);
-        if (!datatype_cmp(&argument_decl->type, &ExprType)) {
+        if (CheckArgType && !datatype_cmp(&argument_decl->type, &ExprType)) {
             char expr_type_str[0xFF] = { 0 };
             strncpy(expr_type_str, datatype_to_str(&ExprType), ARRAY_LEN(expr_type_str));
             ANALYZER_ERROR(node->position, "Argument expected type '%s', got '%s' instead!", datatype_to_str(&argument_decl->type), expr_type_str);
         }
-        argument_expr->expr_type = FuncDecl->data.function_declaration.args[i].data.variable_declaration.type;
+        argument_expr->expr_type = ExprType;
+    }
+
+    // @HACK: Insert a ghost variable decl to call arguments for the backend so it knows when the variadic parameters begin.
+    if (IsVariadic) {
+        static ast_node_t ghost_var = {
+            .kind = AST_VARIABLE_DECLARATION,
+            .data.variable_declaration = {
+                .type = {
+                    .kind = DATATYPE_VARIADIC
+                }
+            }
+        };
+        arrins(node->data.function_call.args, DeclArgCount-1, &ghost_var);
     }
 
     // @HACK: also set in _analyze_expression, but _analyze_func_call can also be called somewhere else.

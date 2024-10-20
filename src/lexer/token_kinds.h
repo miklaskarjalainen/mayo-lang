@@ -79,6 +79,7 @@ _DEF(TOK_CONST_BOOLEAN, "<const boolean>"),
 
 #if defined(_TK_SYMBOLS)
 /* Multi Char Symbols */
+_DEF(TOK_TRIPLE_DOT, "..."),
 _DEF(TOK_DOUBLE_DOT, ".."),
 _DEF(TOK_ARROW, "->"),
 

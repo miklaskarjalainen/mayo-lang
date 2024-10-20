@@ -208,8 +208,27 @@ static ast_node_t* parse_function_parameters(parser_t* parser) {
     while (!parser_eat_if(parser, TOK_PAREN_CLOSE)) {
         /*
             Argument syntax: (disallows trailing commas)
-                "<identifier>: <type> [,]"        
+                "<identifier>: <type> [,]"   
+
+                can end in "..." signaling for variadic function.     
         */ 
+        if (parser_eat_if(parser, TOK_TRIPLE_DOT)) {
+            ast_node_t arg = { 
+                .kind = AST_VARIABLE_DECLARATION,
+                .position = parser_peek_behind(parser).position
+            };
+            arg.data.variable_declaration = (ast_variable_declaration_t) { 
+                .name = "",
+                .type = (datatype_t){.kind = DATATYPE_VARIADIC},
+                .expr = NULL
+            };
+            arrpush(args, arg);
+            if (!parser_eat_if(parser, TOK_PAREN_CLOSE)) {
+                PARSER_ERROR(parser_peek(parser).position, "There can not be any arguments after the '...'!");
+            }
+            break;
+        }
+
         const token_t IdentifierTok = parser_eat_expect(parser, TOK_IDENTIFIER);
         const char* Identifier = IdentifierTok.data.str;
         parser_eat_expect(parser, TOK_COLON);

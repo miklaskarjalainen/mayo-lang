@@ -677,10 +677,13 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
         case AST_FUNCTION_CALL: {
             const ast_function_call_t* FuncCall = &ast->data.function_call;
 
+
             // Make temporaries for the arguments
             temporary_t* arg_temps = NULL;
             const size_t ArgCount = arrlenu(FuncCall->args);
             for (size_t i = 0; i < ArgCount; i++) {
+                if (FuncCall->args[i]->data.variable_declaration.type.kind == DATATYPE_VARIADIC)
+                    continue;
                 arrput(arg_temps, _generate_expr_node(f, FuncCall->args[i], ctx));
             }
 
@@ -691,15 +694,22 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
             fprintf(f, "=%s call $%s(", _get_abi_type(&ast->expr_type), FuncCall->name);
 
             // Pass arguments to the function call
+            int was_variadic = 0; // @HACK: 
             for (size_t i = 0; i < ArgCount; i++) {
                 const ast_node_t* Expr = FuncCall->args[i];
+                if (Expr->data.variable_declaration.type.kind == DATATYPE_VARIADIC){
+                    fprintf(f, "..., ");
+                    was_variadic++;
+                    continue;
+                }
+
                 const char ArgType = _get_base_type(&Expr->expr_type);
                 if (ArgType == '\0') {
                     fprintf(f, ":%s ", Expr->expr_type.typename);
                 } else {
                     fprintf(f, "%c ", ArgType);
                 }
-                fprint_temp(f, arg_temps[i]);
+                fprint_temp(f, arg_temps[i-was_variadic]);
                 fprintf(f, ", ");
             }
             fprintf(f, ")\n");

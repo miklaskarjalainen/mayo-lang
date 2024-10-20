@@ -9,6 +9,7 @@ typedef enum datatype_kind {
     DATATYPE_POINTER,
     DATATYPE_ARRAY,
     DATATYPE_PRIMITIVE,
+    DATATYPE_VARIADIC
 } datatype_kind;
 
 typedef struct datatype_t {
