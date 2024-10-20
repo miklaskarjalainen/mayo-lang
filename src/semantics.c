@@ -72,7 +72,8 @@ static void _analyze_func_call(global_scope_t* global, const sym_table_t* variab
     // Check that the args match function declaration.
     const size_t CallArgCount = arrlenu(FuncCall->args);
     const size_t DeclArgCount = arrlenu(FuncDecl->data.function_declaration.args);
-    const bool IsVariadic = FuncDecl->data.function_declaration.args[DeclArgCount-1].data.variable_declaration.type.kind == DATATYPE_VARIADIC;
+    const bool IsVariadic = DeclArgCount ? 
+        FuncDecl->data.function_declaration.args[DeclArgCount-1].data.variable_declaration.type.kind == DATATYPE_VARIADIC : false;
     
     if (!IsVariadic && (CallArgCount != DeclArgCount)) {
         ANALYZER_ERROR(node->position, "function takes %zu arguments but %zu were given!", DeclArgCount, CallArgCount);
