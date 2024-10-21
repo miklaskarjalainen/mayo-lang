@@ -111,6 +111,37 @@ static size_t _get_type_size(const datatype_t* type) {
     return 0;
 }
 
+static bool _is_type_signed(const datatype_t* type) {    
+    switch (type->kind) {
+        case DATATYPE_ARRAY:
+        case DATATYPE_POINTER: { return false; }
+
+        case DATATYPE_PRIMITIVE: {
+#define IF_TYPE_RET(s1, ret) if (strcmp(type->typename, s1) == 0) { return ret; } 
+            IF_TYPE_RET("char", false);
+            IF_TYPE_RET("u8", false);
+            IF_TYPE_RET("u16", false);
+            IF_TYPE_RET("u32", false);
+            IF_TYPE_RET("u64", false);
+            IF_TYPE_RET("i8", true);
+            IF_TYPE_RET("i16", true);
+            IF_TYPE_RET("i32", true);
+            IF_TYPE_RET("i64", true);
+
+            IF_TYPE_RET("f32", true);
+            IF_TYPE_RET("f64", true);
+#undef IF_TYPE_RET
+            PANIC("Size not implemented for type '%s'", type->typename);
+        }
+
+        default: {
+            UNIMPLEMENTED("Invalid type");
+        }
+    }
+
+    return 0;
+}
+
 static size_t _get_aggregate_type_size(aggregate_type_t* t) {
     const size_t MemberCount = arrlenu(t->ast->members);
 
@@ -572,9 +603,15 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
                 case BINARY_OP_MULTIPLY : { qbe_operation = "=w mul "; break; }
                 case BINARY_OP_ASSIGN   : { qbe_operation = "=w "; break; }
 
-                case BINARY_OP_EQUAL    : { is_comparision = true; qbe_operation = "=w ceqw "; break; }
-                case BINARY_OP_NOT_EQUAL: { is_comparision = true; qbe_operation = "=w cnew "; break; }
+#define _SIGN_INS(sign_ins, unsign_ins) _is_type_signed(&ast->data.binary_op.left->expr_type) ? "=w " sign_ins : "=w " unsign_ins
+                case BINARY_OP_LESS_THAN                : { is_comparision = true; qbe_operation = _SIGN_INS("csltw", "cultw"); break; }
+                case BINARY_OP_LESS_OR_EQUAL_THAN       : { is_comparision = true; qbe_operation = _SIGN_INS("cslew", "culew"); break; }
+                case BINARY_OP_GREATER_THAN             : { is_comparision = true; qbe_operation = _SIGN_INS("csgtw", "cugtw"); break; }
+                case BINARY_OP_GREATER_OR_EQUAL_THAN    : { is_comparision = true; qbe_operation = _SIGN_INS("csgew", "cugew"); break; }
 
+                case BINARY_OP_EQUAL                    : { is_comparision = true; qbe_operation = "=w ceqw "; break; }
+                case BINARY_OP_NOT_EQUAL                : { is_comparision = true; qbe_operation = "=w cnew "; break; }
+#undef _SIGN_INS
 
                 case BINARY_OP_ARRAY_INDEX: {
                     temporary_t rhs = _generate_expr_node(f, ast->data.binary_op.right, ctx);

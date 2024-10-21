@@ -31,6 +31,10 @@ static op_t token_to_op_binary(const token_t* tk) {
         case TOK_MODULO: { return BINARY_OP_MODULO; }
 
         /* Comparisons */
+        case TOK_LESS_THAN: { return BINARY_OP_LESS_THAN; }
+        case TOK_LESS_THAN_EQUAL: { return BINARY_OP_LESS_OR_EQUAL_THAN; }
+        case TOK_GREATER_THAN: { return BINARY_OP_GREATER_THAN; }
+        case TOK_GREATER_THAN_EQUAL: { return BINARY_OP_GREATER_OR_EQUAL_THAN; }
         case TOK_DOUBLE_EQUAL: { return BINARY_OP_EQUAL; }
         case TOK_BANG_EQUAL  : { return BINARY_OP_NOT_EQUAL; }
 
@@ -69,6 +73,10 @@ static uint8_t get_precedence(op_t op) {
         case BINARY_OP_AND:
         case BINARY_OP_OR:
             return 1;
+        case BINARY_OP_LESS_THAN:
+        case BINARY_OP_LESS_OR_EQUAL_THAN:
+        case BINARY_OP_GREATER_THAN:
+        case BINARY_OP_GREATER_OR_EQUAL_THAN:
         case BINARY_OP_EQUAL:
         case BINARY_OP_NOT_EQUAL:
             return 2;

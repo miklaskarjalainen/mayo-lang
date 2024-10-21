@@ -245,8 +245,8 @@ void lexer_lex(lexer_t* lexer) {
             
             token_t tk = token_new(SymbolKind);
             tk.position = lexer_get_position(lexer);
-            tk.position.column = symbol_start - 1;
-            tk.position.length = 1;
+            tk.position.length = strlen(token_kind_to_str(SymbolKind));
+            tk.position.column = symbol_start - tk.position.length;
             arrpush(lexer->tokens, tk);
             continue;
         }

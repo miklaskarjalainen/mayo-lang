@@ -215,6 +215,10 @@ static datatype_t _analyze_expression_impl(global_scope_t* global, const sym_tab
             }
 
             switch (expr->data.binary_op.operation) {
+                case BINARY_OP_LESS_THAN:
+                case BINARY_OP_LESS_OR_EQUAL_THAN:
+                case BINARY_OP_GREATER_THAN:
+                case BINARY_OP_GREATER_OR_EQUAL_THAN:
                 case BINARY_OP_NOT_EQUAL:
                 case BINARY_OP_EQUAL: {
                     return BoolType;
