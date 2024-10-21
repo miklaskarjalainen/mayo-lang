@@ -256,6 +256,7 @@ static char _get_base_type(const datatype_t* register_type) {
 
         case DATATYPE_PRIMITIVE: {
 #define IF_TYPE_RET(s1, ret) if (strcmp(register_type->typename, s1) == 0) { return ret; } 
+            IF_TYPE_RET("bool", 'w');
             IF_TYPE_RET("char", 'w');
             IF_TYPE_RET("i8"  , 'w');
             IF_TYPE_RET("u8"  , 'w');
@@ -280,7 +281,7 @@ static char _get_base_type(const datatype_t* register_type) {
     return 0;
 }
 
-// base types + "sb" | "ub" | "sh" | "uh" + aggregate
+// base types + "sb" | "ub" | "sh" | "uh"
 static const char* _get_abi_type(const datatype_t* register_type) {
     switch (register_type->kind) {
         case DATATYPE_ARRAY:
@@ -303,10 +304,8 @@ static const char* _get_abi_type(const datatype_t* register_type) {
 
             IF_TYPE_RET("f32" , "s");
             IF_TYPE_RET("f64" , "d");
-
 #undef IF_TYPE_RET
-            PANIC("Add aggregate types! (%s)", register_type->typename);
-            return register_type->typename;
+            return NULL;
         }
 
         default: {
@@ -741,11 +740,11 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
                     continue;
                 }
 
-                const char ArgType = _get_base_type(&Expr->expr_type);
-                if (ArgType == '\0') {
+                const char* ArgType = _get_abi_type(&Expr->expr_type);
+                if (ArgType == NULL) {
                     fprintf(f, ":%s ", Expr->expr_type.typename);
                 } else {
-                    fprintf(f, "%c ", ArgType);
+                    fprintf(f, "%s ", ArgType);
                 }
                 fprint_temp(f, arg_temps[i-was_variadic]);
                 fprintf(f, ", ");
