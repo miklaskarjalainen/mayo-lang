@@ -118,12 +118,15 @@ static ast_node_t* parse_return_statement(parser_t* parser) {
     */
     DEBUG_ASSERT(parser_peek_behind(parser).kind == TOK_KEYWORD_RETURN, "?");
     file_position_t position = parser_peek_behind(parser).position;
-
-    ast_node_t* expr = parser_eat_expression(parser);
-    parser_eat_expect(parser, TOK_SEMICOLON);
     ast_node_t* out = ast_arena_new(parser->arena, AST_RETURN);
-    out->data.expr = expr;
     out->position = position;
+    out->data.expr = NULL;
+
+    if (!parser_eat_if(parser, TOK_SEMICOLON)) {
+        out->data.expr = parser_eat_expression(parser);
+        parser_eat_expect(parser, TOK_SEMICOLON);
+    }
+    
     return out;
 }
 

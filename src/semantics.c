@@ -36,6 +36,9 @@ static bool _analyze_is_valid_type(const global_scope_t* global, const datatype_
     }
     DEBUG_ASSERT(TrueType->kind == DATATYPE_PRIMITIVE, "?");
 
+    if (strcmp(TrueType->typename, "void") == 0) {
+        return true;
+    }
     if (strcmp(TrueType->typename, "u8") == 0) {
         return true;
     }
@@ -453,7 +456,9 @@ static void _analyze_scoped_node(ast_node_t* node, global_scope_t* global, sym_t
         }
 
         case AST_RETURN: {
-            _analyze_expression(global, variables, node->data.expr);
+            if (node->data.expr) {
+                _analyze_expression(global, variables, node->data.expr);
+            }
             break;
         }
 

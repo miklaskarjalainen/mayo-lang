@@ -44,13 +44,14 @@ typedef struct backend_ctx_t {
     aggregate_type_t* types;
 } backend_ctx_t;
 
+#define NULL_TEMPORARY (temporary_t){.id = 0}
 static temporary_t get_temporary(void) {
-    static uint32_t s_Id = 0;
+    static uint32_t s_Id = 1;
     return (temporary_t){.id = s_Id++};
 }
 
 static label_t get_label(void) {
-    static uint32_t s_Id = 0;
+    static uint32_t s_Id = 1;
     return (label_t){.id = s_Id++};
 }
 
@@ -291,6 +292,7 @@ static const char* _get_abi_type(const datatype_t* register_type) {
 
         case DATATYPE_PRIMITIVE: {
 #define IF_TYPE_RET(s1, ret) if (strcmp(register_type->typename, s1) == 0) { return ret; } 
+            IF_TYPE_RET("void", "");
             IF_TYPE_RET("bool", "ub");
             IF_TYPE_RET("char", "ub");
             IF_TYPE_RET("i8"  , "sb");
@@ -755,11 +757,16 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
         }
 
         case AST_RETURN: {
-            temporary_t r = _generate_expr_node(f, ast->data.expr, ctx);
-            fprintf(f, "\tret ");
-            fprint_temp(f, r);
-            fprintf(f, "\n");
-            return r;
+            if (ast->data.expr) {
+                temporary_t r = _generate_expr_node(f, ast->data.expr, ctx);
+                fprintf(f, "\tret ");
+                fprint_temp(f, r);
+                fprintf(f, "\n");
+            }
+            else {
+                fprintf(f, "\tret\n");
+            }
+            return NULL_TEMPORARY;
         }
 
         case AST_VARIABLE_DECLARATION: {
