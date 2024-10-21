@@ -57,6 +57,12 @@ static bool _analyze_is_valid_type(const global_scope_t* global, const datatype_
     if (strcmp(TrueType->typename, "char") == 0) {
         return true;
     }
+    if (strcmp(TrueType->typename, "f32") == 0) {
+        return true;
+    }
+    if (strcmp(TrueType->typename, "f64") == 0) {
+        return true;
+    }
 
     ast_variable_declaration_t* var_decl = sym_table_get(&global->structs, TrueType->typename);
     return var_decl != NULL;
@@ -130,8 +136,14 @@ static datatype_t _analyze_expression_impl(global_scope_t* global, const sym_tab
 
     switch (expr->kind) {
         case AST_BOOL_LITERAL: { return BoolType; };
-
         case AST_CHAR_LITERAL: { return CharType; };
+
+        case AST_FLOAT_LITERAL: {
+            return (datatype_t) {
+                .kind = DATATYPE_PRIMITIVE,
+                .typename = "f32"
+            };
+        };
 
         case AST_INTEGER_LITERAL: {
             return (datatype_t) {

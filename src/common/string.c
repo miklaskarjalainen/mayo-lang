@@ -1,4 +1,3 @@
-
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
@@ -296,7 +295,7 @@ const char* uint_to_str(unsigned int num) {
 }
 
 bool is_integer(const char* str) {
-    const unsigned int Len = strlen(str);
+    const size_t Len = strlen(str);
     if (Len == 0) {
         return false;
     }
@@ -316,26 +315,67 @@ bool is_integer(const char* str) {
     return true;
 }
 
-//TODO: Properly implement.
 bool is_floating_point(const char *str) {
-    char* end_ptr;
-    strtod(str, &end_ptr);
-
-    // Check if the entire string was consumed by strtod
-    if (str == end_ptr) {
-        return false;
-    }
-
-    // Skip leading whitespace
-    while (isspace((unsigned char)*end_ptr)) {
-        end_ptr++;
-    }
-
-    // Check if there are no trailing characters
-    if (*end_ptr != '\0') {
+    const size_t Len = strlen(str);
+    const size_t StartIdx = str[0] == '-' ? 1 : 0;
+    
+    bool had_dot = false; // Dot is only allowed to occur once.
+    for (size_t i = StartIdx; i < Len; i++) {
+        if (isdigit(str[i])) {
+            continue;
+        }
+        if (str[i] == '.' && !had_dot) {
+            had_dot = true;
+            continue;
+        }
         return false;
     }
     return true;
+}
+
+// Parses string until invalid character is found.
+// Returns the amount of characters eaten
+static size_t str2int(const char* str, int64_t* out) {
+    const bool IsNegative = str[0] == '-';
+    size_t i = (size_t)IsNegative;
+    for (; str[i] != '\0'; i++) {
+        if (!isdigit(str[i])) {
+            break;
+        }
+        *out *= 10;
+        *out += str[i] - '0';
+    }
+
+    if (IsNegative) {
+        *out *= -1;
+    }
+
+    return i;
+}
+
+float str2f32(const char* str) {
+    // This functions assumes that the 'str' is a valid float.
+    // Parsing is done in 3 stages.
+    // 1. Parse the whole numbers
+    // 2. Parse the decimals
+    // 3. Divide with the power of decimals parsed.
+    
+    int64_t all_digits = 0;
+    int64_t parse_count = str2int(str, &all_digits);
+    
+    if (str[parse_count] == '.') {
+        parse_count = str2int(&str[parse_count+1], &all_digits);
+        
+        // Makeshift power of
+        int divider = 1;
+        for (int64_t i = 0; i < parse_count; i++) {
+            divider *= 10;
+        }
+        
+        return (float)(all_digits) / (float)divider;
+    }
+
+    return (float)all_digits;
 }
 
 bool issym(char c) {

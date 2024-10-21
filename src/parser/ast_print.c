@@ -281,6 +281,12 @@ static void print_bool_literal(const ast_node_t* node, size_t depth) {
     printf("\n");
 }
 
+static void print_float_literal(const ast_node_t* node, size_t depth) {
+    AST_PRINT_SETUP(depth, node->kind, AST_SECONDARY_COLOR "'%f' " STDOUT_RESET , node->data.f32);
+    PRINT_POS(node->position);
+    printf("\n");
+}
+
 static void print_integer_literal(const ast_node_t* node, size_t depth) {
     AST_PRINT_SETUP(depth, node->kind, AST_SECONDARY_COLOR "'%li' " STDOUT_RESET , node->data.integer);
     PRINT_POS(node->position);
@@ -329,6 +335,7 @@ static void print_ast_internal(const ast_node_t* node, size_t depth) {
         case AST_GET_VARIABLE: print_ast_literal(node, depth); break;
         case AST_BOOL_LITERAL  : print_bool_literal(node, depth); break;
         case AST_INTEGER_LITERAL : print_integer_literal(node, depth); break;
+        case AST_FLOAT_LITERAL : print_float_literal(node, depth); break;
         case AST_CHAR_LITERAL  : print_char_literal(node, depth); break;
         case AST_STRING_LITERAL: print_ast_literal(node, depth); break;
 

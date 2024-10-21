@@ -86,6 +86,10 @@ void token_print_pretty(const token_t* tk) {
             printf(", %li", tk->data.integer);
             break;
         }
+        case TOK_CONST_FLOAT: {
+            printf(", " STDOUT_CYAN "%f" STDOUT_RESET, tk->data.f32);
+            break;
+        }
         case TOK_CONST_STRING: {
             printf(", '%s'", tk->data.str);
             break;

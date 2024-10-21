@@ -55,5 +55,6 @@ void print_str_unescaped(const char* str);
 bool is_integer(const char* str);
 bool is_floating_point(const char* str);
 bool issym(char c);
+float str2f32(const char* str);
 
 #endif

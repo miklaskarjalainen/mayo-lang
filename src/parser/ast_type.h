@@ -104,6 +104,7 @@ typedef struct ast_node_t {
         struct ast_node_t* expr;
         range_t range; // @TODO: proper 'iterator' type.
         int64_t integer;
+        float f32;
         bool boolean;
         char c;
 

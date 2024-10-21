@@ -17,6 +17,8 @@ typedef struct token_t {
     union {
         bool boolean;
         char c;
+        float f32;
+        double f64;
         int64_t integer;
         char* str; 
     } data;

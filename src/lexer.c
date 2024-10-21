@@ -129,14 +129,11 @@ static void lexer_flush(lexer_t* lexer) {
         tk.data.integer = atoi(lexer->word.chars);
         arrpush(lexer->tokens, tk);
     }
-    /*
     else if (is_floating_point(lexer->word.chars)) {
-        tk.kind = TOK_CONST_VALUE;
-        tk.variant = variant_core(CORETYPE_F32);
-        tk.variant.value.real = strtod(lexer->word.chars, NULL);
+        tk.kind = TOK_CONST_FLOAT;
+        tk.data.f32 = str2f32(lexer->word.chars);
         arrpush(lexer->tokens, tk);
     }
-    */
     else {
         // check that an identifier only contains valid characters.
         for (size_t i = 0; i < lexer->word.length; i++) {

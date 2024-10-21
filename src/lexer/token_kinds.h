@@ -72,6 +72,7 @@ _DEF(TOK_KEYWORD_EXTERN, "extern"),
 #if defined(_TK_VALUES)
 /* value tokens */
 _DEF(TOK_CONST_INTEGER, "<const int>"),
+_DEF(TOK_CONST_FLOAT, "<const float>"),
 _DEF(TOK_CONST_STRING, "<const string>"),
 _DEF(TOK_CONST_CHAR, "<const char>"),
 _DEF(TOK_CONST_BOOLEAN, "<const boolean>"),

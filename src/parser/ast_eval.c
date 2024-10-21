@@ -135,6 +135,13 @@ static ast_node_t* ast_parse_primary(parser_t* parser) {
             return ast;
         }
         
+        case TOK_CONST_FLOAT: {
+            ast_node_t* ast = ast_arena_new(parser->arena, AST_FLOAT_LITERAL);
+            ast->data.f32 = tk.data.f32;
+            ast->position = tk.position;
+            return ast;
+        }
+
         case TOK_CONST_STRING: {
             ast_node_t* ast = ast_arena_new(parser->arena, AST_STRING_LITERAL);
             ast->data.literal = tk.data.str;
