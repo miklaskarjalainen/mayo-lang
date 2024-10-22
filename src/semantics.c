@@ -357,15 +357,18 @@ static datatype_t _analyze_expression_impl(global_scope_t* global, const sym_tab
             const ast_get_member_t* GetMember = &expr->data.get_member;
             const datatype_t ExprType = _analyze_expression(global, variables, GetMember->expr);
             const char* GetMemberName = GetMember->member;
-            if (ExprType.kind != DATATYPE_PRIMITIVE) {
-                ANALYZER_ERROR(expr->position, "Structure expected!");
+            if (ExprType.kind == DATATYPE_ARRAY) {
+                ANALYZER_ERROR(expr->position, "Structure expected, got an array!");
+
             }
-            const ast_node_t* Decl = sym_table_get(&global->structs, ExprType.typename);
+            
+            const char* Typename = datatype_underlying_type(&ExprType)->typename;
+            const ast_node_t* Decl = sym_table_get(&global->structs, Typename);
             if (!Decl){
                 if (_analyze_is_valid_type(global, &ExprType)) {
                     ANALYZER_ERROR(expr->position, "Expression has no member called '%s'!", GetMemberName);
                 }
-                ANALYZER_ERROR(expr->position, "No typename '%s' is defined!", ExprType.typename);
+                ANALYZER_ERROR(expr->position, "No typename '%s' is defined!", Typename);
             }
 
             // Find field type

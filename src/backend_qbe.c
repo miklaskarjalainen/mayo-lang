@@ -5,7 +5,6 @@
 #include "common/error.h"
 #include "common/utils.h"
 #include "parser/ast_type.h"
-
 #include "backend_qbe.h"
 
 typedef struct temporary_t {
@@ -556,7 +555,8 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
                     
                     // Find struct
                     const variable_t* Variable = _find_variable(GetMember->data.get_member.expr->data.literal, ctx);
-                    const aggregate_type_t* Type = _find_type(Variable->var_decl->type.typename, ctx);
+                    const datatype_t* StructureType = datatype_underlying_type(&Variable->var_decl->type);
+                    const aggregate_type_t* Type = _find_type(StructureType->typename, ctx);
                     const size_t Offset = _get_type_member_offset(Type, MemberName);
 
                     // Get index
@@ -745,13 +745,10 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
         
         case AST_GET_MEMBER: {
             // Find type
-            aggregate_type_t* type = NULL;
-            const size_t TypeCount = arrlenu(ctx->types);  
-            for (size_t i = 0; i < TypeCount; i++) {
-                if (strcmp(ast->data.get_member.expr->expr_type.typename, ctx->types[i].ast->name) == 0) {
-                    type = &ctx->types[i];
-                }
-            }
+            aggregate_type_t* type = _find_type(
+                datatype_underlying_type(&ast->data.get_member.expr->expr_type)->typename,
+                ctx
+            );
             DEBUG_ASSERT(type, "Struct declaration was not found!");
 
             const char* FieldName = ast->data.get_member.member;
