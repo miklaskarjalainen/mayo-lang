@@ -45,7 +45,6 @@ static op_t token_to_op_binary(const token_t* tk) {
         case TOK_PAREN_CLOSE     : { return OP_PAREN_CLOSE; }
 
         case TOK_BRACKET_OPEN    : { return BINARY_OP_ARRAY_INDEX; }
-        case TOK_DOT             : { return BINARY_OP_GET_MEMBER; }
 
         /* Assignment */
         case TOK_EQUALS          : { return BINARY_OP_ASSIGN; }
@@ -91,9 +90,6 @@ static uint8_t get_precedence(op_t op) {
         case BINARY_OP_ARRAY_INDEX:
             return 5;
 
-        case BINARY_OP_GET_MEMBER:
-            return 6;
-
         /* parens */
         case OP_PAREN_OPEN:
         case OP_PAREN_CLOSE:
@@ -111,42 +107,43 @@ static uint8_t get_precedence(op_t op) {
 static ast_node_t* ast_parse_expression(parser_t* parser, uint8_t prec);
 
 static ast_node_t* ast_parse_primary(parser_t* parser) {
+    ast_node_t* ast = NULL;
     token_t tk = parser_eat(parser);
 
     switch (tk.kind) {
         case TOK_CONST_BOOLEAN: {
-            ast_node_t* ast = ast_arena_new(parser->arena, AST_BOOL_LITERAL);
+            ast = ast_arena_new(parser->arena, AST_BOOL_LITERAL);
             ast->data.boolean = tk.data.boolean;
             ast->position = tk.position;
-            return ast;
+            break;
         }
         
         case TOK_CONST_CHAR: {
-            ast_node_t* ast = ast_arena_new(parser->arena, AST_CHAR_LITERAL);
+            ast = ast_arena_new(parser->arena, AST_CHAR_LITERAL);
             ast->data.c = tk.data.c;
             ast->position = tk.position;
-            return ast;
+            break;
         }
 
         case TOK_CONST_INTEGER: {
-            ast_node_t* ast = ast_arena_new(parser->arena, AST_INTEGER_LITERAL);
+            ast = ast_arena_new(parser->arena, AST_INTEGER_LITERAL);
             ast->data.integer = tk.data.integer;
             ast->position = tk.position;
-            return ast;
+            break;
         }
         
         case TOK_CONST_FLOAT: {
-            ast_node_t* ast = ast_arena_new(parser->arena, AST_FLOAT_LITERAL);
+            ast = ast_arena_new(parser->arena, AST_FLOAT_LITERAL);
             ast->data.f32 = tk.data.f32;
             ast->position = tk.position;
-            return ast;
+            break;
         }
 
         case TOK_CONST_STRING: {
-            ast_node_t* ast = ast_arena_new(parser->arena, AST_STRING_LITERAL);
+            ast = ast_arena_new(parser->arena, AST_STRING_LITERAL);
             ast->data.literal = tk.data.str;
             ast->position = tk.position;
-            return ast;
+            break;
         }
 
         case TOK_IDENTIFIER: {
@@ -154,36 +151,40 @@ static ast_node_t* ast_parse_primary(parser_t* parser) {
             const token_t Peeked = parser_peek(parser);
             if (Peeked.kind == TOK_PAREN_OPEN) {
                 const char* FnName = tk.data.str;
-                return parse_function_call(parser, FnName, true);
+                ast = parse_function_call(parser, FnName, true);
+                break;
             }
             /* struct initializer list */
             if (Peeked.kind == TOK_CURLY_OPEN) {
                 const char* TypeName = tk.data.str;
-                return parse_struct_initializer_list(parser, TypeName);
+                ast = parse_struct_initializer_list(parser, TypeName);
+                break;
             }
             /* cast statement list */
             if (Peeked.kind == TOK_LESS_THAN && !strcmp(tk.data.str, "cast")) {
-                return parse_cast_statement(parser);
+                ast = parse_cast_statement(parser);
+                break;
             }
 
             
             /* regular variable */
-            ast_node_t* ast = ast_arena_new(parser->arena, AST_GET_VARIABLE);
+            ast = ast_arena_new(parser->arena, AST_GET_VARIABLE);
             ast->data.literal = tk.data.str;
             ast->position = tk.position;
-            return ast;
+            break;
         }
 
         /* array initializer list */
         case TOK_BRACKET_OPEN: {
-            return parse_array_initializer_list(parser);
+            ast = parse_array_initializer_list(parser);
+            break;
         }
 
         case TOK_PAREN_OPEN: {
-            ast_node_t* ast = ast_parse_expression(parser, 0);
+            ast = ast_parse_expression(parser, 0);
             token_t other = parser_eat(parser);
             PARSER_ASSERT(other.kind == TOK_PAREN_CLOSE, tk.position, "not closed");
-            return ast;
+            break;
         }
 
         default: {
@@ -191,7 +192,19 @@ static ast_node_t* ast_parse_primary(parser_t* parser) {
             break;
         }
     }
-    return NULL;
+
+    // Get member
+    while (parser_eat_if(parser, TOK_DOT)) {
+        const token_t MemberName = parser_eat_expect(parser, TOK_IDENTIFIER);
+
+        ast_node_t* operator = ast_arena_new(parser->arena, AST_GET_MEMBER);
+        operator->data.get_member.expr = ast;
+        operator->data.get_member.member = MemberName.data.str;
+        operator->position = tk.position;
+        ast = operator;
+    }
+
+    return ast;
 }
 
 static ast_node_t* ast_parse_expression(parser_t* parser, uint8_t prec) {
@@ -229,6 +242,8 @@ static ast_node_t* ast_parse_expression(parser_t* parser, uint8_t prec) {
         tk.kind != TOK_BRACKET_CLOSE 
     )
     {
+        
+
         op_t op = token_to_op_binary(&tk);
         if (get_precedence(op) == prec) {
             ast_node_t* rhs = NULL;

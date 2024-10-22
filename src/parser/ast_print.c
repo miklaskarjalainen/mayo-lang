@@ -270,6 +270,11 @@ static void print_ast_cast(const ast_node_t* node, size_t depth) {
     print_ast_internal(node->data.cast_statement.expr, depth + 1);
 }
 
+static void print_get_member(const ast_get_member_t* node, size_t depth) {
+    AST_PRINT_SETUP(depth, AST_GET_MEMBER, " '%s'\n", node->member);
+    print_ast_internal(node->expr, depth + 1);
+}
+
 static void print_return(const ast_node_t* node, size_t depth) {
     AST_PRINT_SETUP_NO_ADDITIONAL(depth, AST_RETURN);
     print_ast_internal(node->data.expr, depth + 1);
@@ -326,6 +331,7 @@ static void print_ast_internal(const ast_node_t* node, size_t depth) {
         case AST_IF_STATEMENT            : print_ast_if_statement        (&node->data.if_statement, depth); break;
         case AST_UNARY_OP                : print_ast_unary_op            (&node->data.unary_op, depth); break;
         case AST_BINARY_OP               : print_ast_binary_op           (&node->data.binary_op, depth); break;
+        case AST_GET_MEMBER              : print_get_member              (&node->data.get_member, depth); break;
         case AST_CAST_STATEMENT          : print_ast_cast                (node, depth); break;
         case AST_RETURN                  : print_return                  (node, depth); break;
 

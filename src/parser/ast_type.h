@@ -21,6 +21,7 @@ typedef enum op_t {
 const char* op_to_str(op_t op);
 const char* ast_kind_to_str(ast_kind_t kind);
 
+
 typedef struct ast_binary_op_t {
     op_t operation;
     struct ast_node_t* left;
@@ -31,6 +32,11 @@ typedef struct ast_unary_op_t {
     op_t operation;
     struct ast_node_t* operand;
 } ast_unary_op_t;
+
+typedef struct ast_get_member_t {
+    const char* member;
+    struct ast_node_t* expr;
+} ast_get_member_t;
 
 typedef struct ast_cast_statement_t {
     struct ast_node_t* expr;
@@ -111,6 +117,7 @@ typedef struct ast_node_t {
         /* Ast types */
         ast_unary_op_t unary_op;
         ast_binary_op_t binary_op;
+        ast_get_member_t get_member;
         ast_cast_statement_t cast_statement;
         ast_if_statement_t if_statement;
         ast_variable_declaration_t variable_declaration;

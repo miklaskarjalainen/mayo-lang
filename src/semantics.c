@@ -189,34 +189,6 @@ static datatype_t _analyze_expression_impl(global_scope_t* global, const sym_tab
 
         case AST_BINARY_OP: {
             const datatype_t Lhs = _analyze_expression(global, variables, expr->data.binary_op.left);
-            if (expr->data.binary_op.operation == BINARY_OP_GET_MEMBER) {
-                DEBUG_ASSERT(expr->data.binary_op.right->kind == AST_GET_VARIABLE, "?");
-
-                // Find member
-                const char* GetMemberName = expr->data.binary_op.right->data.literal;
-                if (Lhs.kind != DATATYPE_PRIMITIVE) {
-                    ANALYZER_ERROR(expr->position, "Structure expected!");
-                }
-                const ast_node_t* Decl = sym_table_get(&global->structs, Lhs.typename);
-                if (!Decl){
-                    ANALYZER_ERROR(expr->position, "No typename '%s' is defined!", Lhs.typename);
-                }
-
-                // Find field type
-                DEBUG_ASSERT(Decl->kind == AST_STRUCT_DECLARATION, "?");
-                const size_t MemberCount = arrlenu(Decl->data.struct_declaration.members);
-                for (size_t i = 0; i < MemberCount; i++) {
-                    const ast_variable_declaration_t* MemberDecl = &Decl->data.struct_declaration.members[i];
-                    if (strcmp(MemberDecl->name, GetMemberName) == 0) {
-                        return MemberDecl->type;
-                    }
-                }
-
-                ANALYZER_ERROR(expr->data.binary_op.right->position, "No variable has no member called '%s'!", GetMemberName);
-                return (datatype_t){ 0 };
-            }
-            
-            
             const datatype_t Rhs = _analyze_expression(global, variables, expr->data.binary_op.right);
             if (expr->data.binary_op.operation == BINARY_OP_ARRAY_INDEX) {
                 if (Lhs.kind != DATATYPE_ARRAY) {
@@ -379,6 +351,35 @@ static datatype_t _analyze_expression_impl(global_scope_t* global, const sym_tab
 
             ANALYZER_ERROR(expr->position, "Expression cannot be cast to type %s", datatype_to_str(&TargetType));
             break;
+        }
+
+        case AST_GET_MEMBER: {
+            const ast_get_member_t* GetMember = &expr->data.get_member;
+            const datatype_t ExprType = _analyze_expression(global, variables, GetMember->expr);
+            const char* GetMemberName = GetMember->member;
+            if (ExprType.kind != DATATYPE_PRIMITIVE) {
+                ANALYZER_ERROR(expr->position, "Structure expected!");
+            }
+            const ast_node_t* Decl = sym_table_get(&global->structs, ExprType.typename);
+            if (!Decl){
+                if (_analyze_is_valid_type(global, &ExprType)) {
+                    ANALYZER_ERROR(expr->position, "Expression has no member called '%s'!", GetMemberName);
+                }
+                ANALYZER_ERROR(expr->position, "No typename '%s' is defined!", ExprType.typename);
+            }
+
+            // Find field type
+            DEBUG_ASSERT(Decl->kind == AST_STRUCT_DECLARATION, "?");
+            const size_t MemberCount = arrlenu(Decl->data.struct_declaration.members);
+            for (size_t i = 0; i < MemberCount; i++) {
+                const ast_variable_declaration_t* MemberDecl = &Decl->data.struct_declaration.members[i];
+                if (strcmp(MemberDecl->name, GetMemberName) == 0) {
+                    return MemberDecl->type;
+                }
+            }
+
+            ANALYZER_ERROR(expr->position, "Expression has no member called '%s'!", GetMemberName);
+            return (datatype_t){ 0 };
         }
 
         default: {

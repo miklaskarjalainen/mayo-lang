@@ -29,9 +29,6 @@ _DEF(BINARY_OP_OR),
 
 /* left: the array, right: the index */
 _DEF(BINARY_OP_ARRAY_INDEX),
-/* left: <idf: struct>, right: <idf: member> */
-_DEF(BINARY_OP_GET_MEMBER),
-
 _DEF(BINARY_OP_ASSIGN),
 #endif
 

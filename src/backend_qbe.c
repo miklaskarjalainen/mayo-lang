@@ -524,7 +524,7 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
                 DEBUG_ASSERT(
                     Lhs->kind == AST_GET_VARIABLE || 
                     (Lhs->kind == AST_BINARY_OP && Lhs->data.binary_op.operation == BINARY_OP_ARRAY_INDEX) ||
-                    (Lhs->kind == AST_BINARY_OP && Lhs->data.binary_op.operation == BINARY_OP_GET_MEMBER),
+                    Lhs->kind == AST_GET_MEMBER,
                     "Invalid assignment!"
                 );
 
@@ -548,19 +548,19 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
                     fprintf(f, "\n");
                     return ptr_temp;
                 }
-                else if (Lhs->kind == AST_BINARY_OP && Lhs->data.binary_op.operation == BINARY_OP_GET_MEMBER) {
+                else if (Lhs->kind == AST_GET_MEMBER) {
                     // Get ptr to index
                     const ast_node_t* GetMember = ast->data.binary_op.left;
                     const datatype_t ElementType = GetMember->expr_type;
-                    const char* MemberName = GetMember->data.binary_op.right->data.literal;
+                    const char* MemberName = GetMember->data.get_member.member;
                     
                     // Find struct
-                    const variable_t* Variable = _find_variable(GetMember->data.binary_op.left->data.literal, ctx);
+                    const variable_t* Variable = _find_variable(GetMember->data.get_member.expr->data.literal, ctx);
                     const aggregate_type_t* Type = _find_type(Variable->var_decl->type.typename, ctx);
                     const size_t Offset = _get_type_member_offset(Type, MemberName);
 
                     // Get index
-                    const temporary_t StructTemp = _generate_expr_node(f, GetMember->data.binary_op.left, ctx);
+                    const temporary_t StructTemp = _generate_expr_node(f, GetMember->data.get_member.expr, ctx);
                     const temporary_t OffsetTemp = get_temporary();
                     fprintf(f, "\t");        
                     fprint_temp(f, OffsetTemp);        
@@ -624,39 +624,6 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
                     fprint_temp(f, result);
                     fprintf(f, "%s ", _get_load_ins(&ast->expr_type));
                     fprint_temp(f, ptr);
-                    fprintf(f, "# indexed element\n");
-
-                    return result;
-                }
-
-                case BINARY_OP_GET_MEMBER: {
-                    // Find type            
-                    aggregate_type_t* type = NULL;
-                    const size_t TypeCount = arrlenu(ctx->types);  
-                    for (size_t i = 0; i < TypeCount; i++) {
-                        if (strcmp(ast->data.binary_op.left->expr_type.typename, ctx->types[i].ast->name) == 0) {
-                            type = &ctx->types[i];
-                        }
-                    }
-                    DEBUG_ASSERT(type, "Struct declaration was not found!");
-
-                    const char* FieldName = ast->data.binary_op.right->data.literal;
-                    const size_t Offset = _get_type_member_offset(type, FieldName);
-
-                    // Ptr
-                    const temporary_t PtrAdd = get_temporary();
-                    fprintf(f, "\t");
-                    fprint_temp(f, PtrAdd);
-                    fprintf(f, "=l add ");
-                    fprint_temp(f, lhs);
-                    fprintf(f, ", %zu\n", Offset);
-
-                    // Get memory from that index
-                    temporary_t result = get_temporary();
-                    fprintf(f, "\t");
-                    fprint_temp(f, result);
-                    fprintf(f, "%s ", _get_load_ins(&ast->expr_type));
-                    fprint_temp(f, PtrAdd);
                     fprintf(f, "# indexed element\n");
 
                     return result;
@@ -776,6 +743,39 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
             return r;
         }
         
+        case AST_GET_MEMBER: {
+            // Find type
+            aggregate_type_t* type = NULL;
+            const size_t TypeCount = arrlenu(ctx->types);  
+            for (size_t i = 0; i < TypeCount; i++) {
+                if (strcmp(ast->data.get_member.expr->expr_type.typename, ctx->types[i].ast->name) == 0) {
+                    type = &ctx->types[i];
+                }
+            }
+            DEBUG_ASSERT(type, "Struct declaration was not found!");
+
+            const char* FieldName = ast->data.get_member.member;
+            const size_t Offset = _get_type_member_offset(type, FieldName);
+            const temporary_t ExprTemp = _generate_expr_node(f, ast->data.get_member.expr, ctx);
+
+            // Ptr
+            const temporary_t PtrAdd = get_temporary();
+            fprintf(f, "\t");
+            fprint_temp(f, PtrAdd);
+            fprintf(f, "=l add ");
+            fprint_temp(f, ExprTemp);
+            fprintf(f, ", %zu\n", Offset);
+
+            // Get memory from that index
+            temporary_t result = get_temporary();
+            fprintf(f, "\t");
+            fprint_temp(f, result);
+            fprintf(f, "%s ", _get_load_ins(&ast->expr_type));
+            fprint_temp(f, PtrAdd);
+            fprintf(f, "# indexed element\n");
+
+            return result;
+        }
 
         case AST_WHILE_LOOP: {
             const ast_while_loop_t* WhileLoop = &ast->data.while_loop;
