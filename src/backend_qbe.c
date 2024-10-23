@@ -60,9 +60,22 @@ static void fprint_temp(FILE* f, temporary_t temp) {
 
 static void fprint_label(FILE* f, label_t temp) {
     fprintf(f, "@l%u", temp.id);
-} 
+}
 
-static size_t _get_type_size(const datatype_t* type) {
+static aggregate_type_t* _find_type(const char* name, const backend_ctx_t* ctx) {
+    // Search for temp
+    size_t TypeCount = arrlenu(ctx->types);
+    for (size_t i = 0; i < TypeCount; i++) {
+        if (strcmp(ctx->types[i].ast->name, name) == 0) {
+            return &ctx->types[i];
+        }
+    }
+
+    return NULL;
+}
+
+static size_t _get_aggregate_type_size(aggregate_type_t* t, const backend_ctx_t* ctx);
+static size_t _get_type_size(const datatype_t* type, const backend_ctx_t* ctx) {
     /*
         Cheatsheet:
             Byte is size of 1. So:
@@ -81,7 +94,7 @@ static size_t _get_type_size(const datatype_t* type) {
         }
 
         case DATATYPE_ARRAY: {
-            const size_t ElementSize = _get_type_size(type->base);
+            const size_t ElementSize = _get_type_size(type->base, ctx);
             return ElementSize * type->array_size;
         }
 
@@ -100,7 +113,10 @@ static size_t _get_type_size(const datatype_t* type) {
             IF_TYPE_RET("f32", 4);
             IF_TYPE_RET("f64", 8);
 #undef IF_TYPE_RET
-            PANIC("Size not implemented for type '%s'", type->typename);
+
+            aggregate_type_t* t = _find_type(type->typename, ctx);
+            DEBUG_ASSERT(t, "Size not implemented for type '%s'", type->typename);
+            return _get_aggregate_type_size(t, ctx);
         }
 
         default: {
@@ -111,7 +127,7 @@ static size_t _get_type_size(const datatype_t* type) {
     return 0;
 }
 
-static bool _is_type_signed(const datatype_t* type) {    
+static bool _is_type_signed(const datatype_t* type) {
     switch (type->kind) {
         case DATATYPE_ARRAY:
         case DATATYPE_POINTER: { return false; }
@@ -142,19 +158,19 @@ static bool _is_type_signed(const datatype_t* type) {
     return 0;
 }
 
-static size_t _get_aggregate_type_size(aggregate_type_t* t) {
+static size_t _get_aggregate_type_size(aggregate_type_t* t, const backend_ctx_t* ctx) {
     const size_t MemberCount = arrlenu(t->ast->members);
 
     size_t size = 0;
     for (size_t i = 0; i < MemberCount; i++) {
         // @FIXME: aggregate types cannot contain other aggregate types.
 
-        size += _get_type_size(&t->ast->members[i].type);
+        size += _get_type_size(&t->ast->members[i].type, ctx);
     }
     return size;
 }
 
-static size_t _get_type_member_offset(const aggregate_type_t* t, const char* member_name) {
+static size_t _get_type_member_offset(const aggregate_type_t* t, const char* member_name, const backend_ctx_t* ctx) {
     const size_t MemberCount = arrlenu(t->ast->members);
 
     size_t offset = 0;
@@ -163,7 +179,7 @@ static size_t _get_type_member_offset(const aggregate_type_t* t, const char* mem
         if (strcmp(t->ast->members[i].name, member_name) == 0) {
             return offset;
         }
-        offset += _get_type_size(&t->ast->members[i].type);
+        offset += _get_type_size(&t->ast->members[i].type, ctx);
     }
     return offset;
 }
@@ -343,7 +359,13 @@ static temporary_t _get_ptr_with_offset(FILE* f, temporary_t begin_ptr, temporar
     return ptr;
 }
 
-static temporary_t _get_array_ptr(FILE* f, temporary_t array_ptr, temporary_t index_temp, const datatype_t* element_type) {
+static temporary_t _get_array_ptr(
+    FILE* f,
+    temporary_t array_ptr,
+    temporary_t index_temp,
+    const datatype_t* element_type,
+    const backend_ctx_t* ctx
+) {
     // @FIXME: Casts a temporary to long, even thought it already might be :)
     // Index operator: e.g
     // %ptr =l add %arr_begin, (size_of*i)
@@ -356,7 +378,7 @@ static temporary_t _get_array_ptr(FILE* f, temporary_t array_ptr, temporary_t in
     fprint_temp(f, index_temp);
 
     // Multiply index with size of an element in the array
-    const size_t ElementSize = _get_type_size(element_type);
+    const size_t ElementSize = _get_type_size(element_type, ctx);
     if (ElementSize > 1) {
         fprintf(f, "\n\t");
         fprint_temp(f, casted_index);
@@ -384,18 +406,6 @@ static variable_t* _find_variable(const char* name, backend_ctx_t* ctx) {
     for (size_t i = 0; i < VarLen; i++) {
         if (strcmp(ctx->variables[i].var_decl->name, name) == 0) {
             return &ctx->variables[i];
-        }
-    }
-
-    return NULL;
-}
-
-static aggregate_type_t* _find_type(const char* name, backend_ctx_t* ctx) {
-    // Search for temp
-    size_t TypeCount = arrlenu(ctx->types);
-    for (size_t i = 0; i < TypeCount; i++) {
-        if (strcmp(ctx->types[i].ast->name, name) == 0) {
-            return &ctx->types[i];
         }
     }
 
@@ -472,7 +482,7 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
             const datatype_t* ExprType = &ast->expr_type;
             DEBUG_ASSERT(ExprType->kind == DATATYPE_ARRAY, "?");
 
-            const size_t ElementSize = _get_type_size(ExprType);
+            const size_t ElementSize = _get_type_size(ExprType, ctx);
             const size_t ArraySize = arrlenu(ast->data.array_initializer_list.exprs);
             const size_t AllocSize = ArraySize * ElementSize;
 
@@ -534,7 +544,7 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
                     const datatype_t ElementType = ArrayIndexAst->expr_type;
                     temporary_t array_temp = _generate_expr_node(f, ArrayIndexAst->data.binary_op.left, ctx);
                     temporary_t index_temp = _generate_expr_node(f, ArrayIndexAst->data.binary_op.right, ctx);
-                    temporary_t ptr_temp = _get_array_ptr(f, array_temp, index_temp, &ElementType);
+                    temporary_t ptr_temp = _get_array_ptr(f, array_temp, index_temp, &ElementType, ctx);
 
                     // Eval expr
                     temporary_t expr_temp = _generate_expr_node(f, ast->data.binary_op.right, ctx);
@@ -557,7 +567,7 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
                     const variable_t* Variable = _find_variable(GetMember->data.get_member.expr->data.literal, ctx);
                     const datatype_t* StructureType = datatype_underlying_type(&Variable->var_decl->type);
                     const aggregate_type_t* Type = _find_type(StructureType->typename, ctx);
-                    const size_t Offset = _get_type_member_offset(Type, MemberName);
+                    const size_t Offset = _get_type_member_offset(Type, MemberName, ctx);
 
                     // Get index
                     const temporary_t StructTemp = _generate_expr_node(f, GetMember->data.get_member.expr, ctx);
@@ -616,7 +626,7 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
 
                 case BINARY_OP_ARRAY_INDEX: {
                     temporary_t rhs = _generate_expr_node(f, ast->data.binary_op.right, ctx);
-                    temporary_t ptr = _get_array_ptr(f, lhs, rhs, &ast->expr_type);
+                    temporary_t ptr = _get_array_ptr(f, lhs, rhs, &ast->expr_type, ctx);
 
                     // Get memory from that index
                     temporary_t result = get_temporary();
@@ -752,7 +762,7 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
             DEBUG_ASSERT(type, "Struct declaration was not found!");
 
             const char* FieldName = ast->data.get_member.member;
-            const size_t Offset = _get_type_member_offset(type, FieldName);
+            const size_t Offset = _get_type_member_offset(type, FieldName, ctx);
             const temporary_t ExprTemp = _generate_expr_node(f, ast->data.get_member.expr, ctx);
 
             // Ptr
@@ -867,7 +877,7 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
                 }
             }
             DEBUG_ASSERT(type, "Struct declaration was not found!");
-            const size_t TypeSize = _get_aggregate_type_size(type); 
+            const size_t TypeSize = _get_aggregate_type_size(type, ctx); 
 
             // Allocate
             const temporary_t Ptr = get_temporary(); 
@@ -878,7 +888,7 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
             // Initialize members
             const size_t ExprCount = arrlenu(InitList->fields);
             for (size_t i = 0; i < ExprCount; i++) {
-                const size_t Offset = _get_type_member_offset(type, InitList->fields[i].name);
+                const size_t Offset = _get_type_member_offset(type, InitList->fields[i].name, ctx);
                 const size_t MemberIndex = _get_type_member_index(type, InitList->fields[i].name);
                 const temporary_t Res = _generate_expr_node(f, InitList->fields[i].expr, ctx);
 
@@ -909,17 +919,43 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
     return get_temporary();
 }
 
+static void _generate_struct_members(FILE* f, const ast_struct_declaration_t* decl, backend_ctx_t* ctx) {
+    const size_t MemCount = arrlenu(decl->members);
+    for (size_t i = 0; i < MemCount; i++) {
+        char c = _get_base_type(&decl->members[i].type);
+        if (c != '\0') {
+            fprintf(f, "%c, ", _get_base_type(&decl->members[i].type));
+        }
+        else {
+            const datatype_t MemberType = decl->members[i].type; 
+            RUNTIME_ASSERT(MemberType.kind == DATATYPE_PRIMITIVE, "only primitive types are supported!");
+            const aggregate_type_t* InnerStruct = _find_type(MemberType.typename, ctx);
+            _generate_struct_members(f, InnerStruct->ast, ctx);
+        }
+    }
+}
+
 static void _generate_ast_global_node(FILE* f, ast_node_t* ast, backend_ctx_t* ctx) {
     switch (ast->kind) {
         case AST_STRUCT_DECLARATION: {
             ast_struct_declaration_t* decl = &ast->data.struct_declaration;
             
             fprintf(f, "type :%s = { ", decl->name);
-
+            _generate_struct_members(f, decl, ctx);
+            /*
             const size_t MemCount = arrlenu(decl->members);
             for (size_t i = 0; i < MemCount; i++) {
-                fprintf(f, "%c, ", _get_base_type(&decl->members[i].type));
+                
+                char c = _get_base_type(&decl->members[i].type);
+                if (c != '\0') {
+                    fprintf(f, "%c, ", _get_base_type(&decl->members[i].type));
+                }
+                else {
+
+
+                }
             }
+            */
 
             fprintf(f, " }\n");
 
