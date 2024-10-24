@@ -40,8 +40,20 @@ void print_cat(const char* contents) {
 }
 
 void print_error_in_file(const char* fpath, size_t line, size_t column, int word_len, const char* reason, ...) {
+    if (!fpath) {
+        printf("error occurred at %zu:%zu, because ", line, column);
+        // Draw reason for the error.
+        if (reason != NULL) {
+            va_list arglist;
+            va_start(arglist, reason);
+            vprintf(reason, arglist);
+            va_end(arglist);
+            printf("\n");
+        }
+        return;
+    }
     char* file_contents = read_file_contents(fpath);
-    if (file_contents == NULL) {
+    if (!file_contents) {
         return;
     }
 
