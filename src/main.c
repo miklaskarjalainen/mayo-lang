@@ -13,6 +13,7 @@
 #include "parser/ast_type.h"
 #include "parser/ast_print.h"
 #include "backend_qbe.h"
+#include "string.h"
 
 #define STB_DS_IMPLEMENTATION
 #include <stb/stb_ds.h>
@@ -65,16 +66,20 @@ int main(int argc, char** argv) {
         // Lex
         PERF_BEGIN(LexBegin);
         lexer_lex(&lexer);
-        const size_t TkCount = arrlenu(lexer.tokens);
-        for (size_t tk_idx = 0; tk_idx < TkCount; tk_idx++) {
-            token_print_pretty(&lexer.tokens[tk_idx]);
+        if (g_Params.print_tokens) {
+            const size_t TkCount = arrlenu(lexer.tokens);
+            for (size_t tk_idx = 0; tk_idx < TkCount; tk_idx++) {
+                token_print_pretty(&lexer.tokens[tk_idx]);
+            }
         }
         lex_duration = PERF_END(LexBegin);
 
         // Parsing
         PERF_BEGIN(ParseBegin);
         parser_parse(&parser);
-        print_ast_tree(parser.node_root);
+        if (g_Params.print_ast) {
+            print_ast_tree(parser.node_root);
+        }
         parse_duration = PERF_END(ParseBegin);
 
         PERF_BEGIN(AnalysisBegin);
@@ -87,9 +92,25 @@ int main(int argc, char** argv) {
         generate_qbe(f, parser.node_root);
         fclose(f);
         qbe_gen_duration = PERF_END(QbeBegin);
+
+        CMD("qbe output.ssa -o output.s");
+
+        // generate command to gcc
+        {
+            const char* CmdTemplate = "gcc -o output.o output.s ";
+            const size_t DesiredLen = strlen(g_Params.cflags) + strlen(CmdTemplate) + 1;
+            
+            // assemble
+            char* cmd = malloc(DesiredLen);
+            strcpy(cmd, CmdTemplate);
+            strcat(cmd, g_Params.cflags);
+            CMD(cmd);
+            free(cmd);
+        }
+
+        CMD("./output.o");
     }
-
-
+    
     parser_cleanup(&parser);
     lexer_cleanup(&lexer); 
     arena_free(&arena);
