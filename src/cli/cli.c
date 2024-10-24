@@ -17,46 +17,57 @@
 
 program_params_t g_Params = { 0 };
 
-/// arg, return true if consumed
-/// params, program_params_t is the returned object from 'cli_parse' which can be modified 
-typedef bool cli_func(program_params_t* params, char* arg);
+// returns the mount of arguments used
+typedef int cli_func(program_params_t* params, char** arg);
 
-static bool _exec_help(program_params_t* params, char* arg);
+static int _exec_help(program_params_t* params, char** arg);
 
-static bool _exec_version(program_params_t* params, char* arg) {
+static int _exec_version(program_params_t* params, char** arg) {
     UNUSED(arg);
     params->do_compilation = false;
-    return false;
+    return 0;
 }
 
-static bool _exec_echo(program_params_t* params, char* arg) {
+static int _exec_echo(program_params_t* params, char** arg) {
     params->do_compilation = false;
-    if (arg == NULL) {
+    if (*arg == NULL) {
         printf("NO ARGUMENT PASSED! :^(\n");
         return true;
     }
-    printf("ECHO: %s\n", arg);
-    return true;
+    printf("ECHO: %s\n", *arg);
+    return 1;
 }
 
-static bool _exec_set_output_file(program_params_t* params, char* arg) {
-    if (arg == NULL) {
+static int _exec_set_output_file(program_params_t* params, char** arg) {
+    if (*arg == NULL) {
         params->do_compilation = false;
         printf("NO ARGUMENT PASSED! :^(\n");
         return true;
     }
-    params->output_file = arg;
-    return true;
+    params->output_file = *arg;
+    return 1;
 }
 
-static bool _exec_cflags(program_params_t* params, char* arg) {
-    if (arg == NULL) {
+static int _exec_cflags(program_params_t* params, char** arg) {
+    if (*arg == NULL) {
         params->do_compilation = false;
         printf("NO ARGUMENT PASSED! :^(\n");
         return true;
     }
-    params->cflags = arg;
-    return true;
+    params->cflags = *arg;
+    return 1;
+}
+
+static int _exec_enable_print_tokens(program_params_t* params, char** arg) {
+    UNUSED(arg);
+    params->print_tokens = true;
+    return 0;
+}
+
+static int _exec_enable_print_ast(program_params_t* params, char** arg) {
+    UNUSED(arg);
+    params->print_ast = true;
+    return 0;
 }
 
 static const struct {
@@ -69,6 +80,8 @@ static const struct {
     {"--version", "-v", "gives more details about the program", _exec_version},
     {NULL, "-o", "sets the output file", _exec_set_output_file},
     {"--echo", "-e", "prints to screen (for CLI debugging)", _exec_echo},
+    {"--print-tokens", NULL, "prints the lexer tokens to stdout", _exec_enable_print_tokens},
+    {"--print-ast", NULL, "prints the ast to stdout", _exec_enable_print_ast},
     {"--CFLAGS", NULL, "pass arguments to gcc", _exec_cflags},
 };
 
@@ -78,7 +91,7 @@ static const struct {
 #define DEBUG_ENABLED 1
 #endif
 
-static bool _exec_help(program_params_t* params, char* arg) {
+static int _exec_help(program_params_t* params, char** arg) {
     params->do_compilation = false;
     
     UNUSED(arg);
@@ -115,7 +128,7 @@ static bool _exec_help(program_params_t* params, char* arg) {
         printf(" - %s\n", s_Args[i].help);
     }
 
-    return false;
+    return 0;
 }
 
 program_params_t cli_parse(int argc, char** argv) {
@@ -124,6 +137,8 @@ program_params_t cli_parse(int argc, char** argv) {
         .input_files = NULL,
         .output_file = DEFAULT_EXECUTABLE,
         .do_compilation = true,
+        .print_ast = false,
+        .print_tokens = false,
         .cflags = ""
     };
 
@@ -164,10 +179,7 @@ program_params_t cli_parse(int argc, char** argv) {
 
             // call the function
             RUNTIME_ASSERT(s_Args[j].func != NULL, "no function set :^(");
-            if (s_Args[j].func(&params, argv[i+1])) {
-                // the func consumed the argument so increment the index.
-                i++;
-            }
+            i += s_Args[j].func(&params, &argv[i+1]);
             match = true;
             break;
         }

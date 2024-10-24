@@ -6,6 +6,7 @@ typedef struct program_params_t {
     const char* output_file;
     char** input_files;
     char* cflags;
+    bool print_tokens, print_ast;
     bool do_compilation;
 } program_params_t;
 
