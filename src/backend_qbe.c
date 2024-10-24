@@ -6,63 +6,27 @@
 #include "common/utils.h"
 #include "parser/ast_type.h"
 #include "backend_qbe.h"
+#include "backend/impl_gen.h"
 
-typedef struct temporary_t {
-    uint32_t id;
-} temporary_t;
-
-typedef struct label_t {
-    uint32_t id;
-} label_t;
-
-typedef struct variable_t {
-    ast_variable_declaration_t* var_decl;
-    temporary_t temp;
-} variable_t;
-
-/*
-typedef enum qbe_type_t {
-    QBE_NONE,
-    QBE_WORD,
-    QBE_LONG,
-    QBE_SINGE,
-    QBE_DOUBLE,
-
-    QBE_EXT_BYTE,
-    QBE_EXT_HALF,
-} qbe_type_t;
-*/
-
-typedef struct aggregate_type_t {
-    ast_struct_declaration_t* ast;
-} aggregate_type_t;
-
-
-typedef struct backend_ctx_t {
-    variable_t* variables;
-    aggregate_type_t* types;
-} backend_ctx_t;
-
-#define NULL_TEMPORARY (temporary_t){.id = 0}
-static temporary_t get_temporary(void) {
+temporary_t get_temporary(void) {
     static uint32_t s_Id = 1;
     return (temporary_t){.id = s_Id++};
 }
 
-static label_t get_label(void) {
+label_t get_label(void) {
     static uint32_t s_Id = 1;
     return (label_t){.id = s_Id++};
 }
 
-static void fprint_temp(FILE* f, temporary_t temp) {
+void fprint_temp(FILE* f, temporary_t temp) {
     fprintf(f, "%%r%u", temp.id);
 } 
 
-static void fprint_label(FILE* f, label_t temp) {
+void fprint_label(FILE* f, label_t temp) {
     fprintf(f, "@l%u", temp.id);
 }
 
-static aggregate_type_t* _find_type(const char* name, const backend_ctx_t* ctx) {
+aggregate_type_t* qbe_find_type(const char* name, const backend_ctx_t* ctx) {
     // Search for temp
     size_t TypeCount = arrlenu(ctx->types);
     for (size_t i = 0; i < TypeCount; i++) {
@@ -74,8 +38,7 @@ static aggregate_type_t* _find_type(const char* name, const backend_ctx_t* ctx) 
     return NULL;
 }
 
-static size_t _get_aggregate_type_size(aggregate_type_t* t, const backend_ctx_t* ctx);
-static size_t _get_type_size(const datatype_t* type, const backend_ctx_t* ctx) {
+size_t qbe_get_type_size(const datatype_t* type, const backend_ctx_t* ctx) {
     /*
         Cheatsheet:
             Byte is size of 1. So:
@@ -94,7 +57,7 @@ static size_t _get_type_size(const datatype_t* type, const backend_ctx_t* ctx) {
         }
 
         case DATATYPE_ARRAY: {
-            const size_t ElementSize = _get_type_size(type->base, ctx);
+            const size_t ElementSize = qbe_get_type_size(type->base, ctx);
             return ElementSize * type->array_size;
         }
 
@@ -114,9 +77,9 @@ static size_t _get_type_size(const datatype_t* type, const backend_ctx_t* ctx) {
             IF_TYPE_RET("f64", 8);
 #undef IF_TYPE_RET
 
-            aggregate_type_t* t = _find_type(type->typename, ctx);
+            aggregate_type_t* t = qbe_find_type(type->typename, ctx);
             DEBUG_ASSERT(t, "Size not implemented for type '%s'", type->typename);
-            return _get_aggregate_type_size(t, ctx);
+            return qbe_get_aggregate_type_size(t, ctx);
         }
 
         default: {
@@ -127,7 +90,19 @@ static size_t _get_type_size(const datatype_t* type, const backend_ctx_t* ctx) {
     return 0;
 }
 
-static bool _is_type_signed(const datatype_t* type) {
+size_t qbe_get_aggregate_type_size(aggregate_type_t* t, const backend_ctx_t* ctx) {
+    const size_t MemberCount = arrlenu(t->ast->members);
+
+    size_t size = 0;
+    for (size_t i = 0; i < MemberCount; i++) {
+        // @FIXME: aggregate types cannot contain other aggregate types.
+
+        size += qbe_get_type_size(&t->ast->members[i].type, ctx);
+    }
+    return size;
+}
+
+bool qbe_is_type_signed(const datatype_t* type) {
     switch (type->kind) {
         case DATATYPE_ARRAY:
         case DATATYPE_POINTER: { return false; }
@@ -158,19 +133,7 @@ static bool _is_type_signed(const datatype_t* type) {
     return 0;
 }
 
-static size_t _get_aggregate_type_size(aggregate_type_t* t, const backend_ctx_t* ctx) {
-    const size_t MemberCount = arrlenu(t->ast->members);
-
-    size_t size = 0;
-    for (size_t i = 0; i < MemberCount; i++) {
-        // @FIXME: aggregate types cannot contain other aggregate types.
-
-        size += _get_type_size(&t->ast->members[i].type, ctx);
-    }
-    return size;
-}
-
-static size_t _get_type_member_offset(const aggregate_type_t* t, const char* member_name, const backend_ctx_t* ctx) {
+size_t qbe_get_type_member_offset(const aggregate_type_t* t, const char* member_name, const backend_ctx_t* ctx) {
     const size_t MemberCount = arrlenu(t->ast->members);
 
     size_t offset = 0;
@@ -179,12 +142,12 @@ static size_t _get_type_member_offset(const aggregate_type_t* t, const char* mem
         if (strcmp(t->ast->members[i].name, member_name) == 0) {
             return offset;
         }
-        offset += _get_type_size(&t->ast->members[i].type, ctx);
+        offset += qbe_get_type_size(&t->ast->members[i].type, ctx);
     }
     return offset;
 }
 
-static size_t _get_type_member_index(aggregate_type_t* t, const char* member_name) {
+size_t qbe_get_type_member_index(aggregate_type_t* t, const char* member_name) {
     const size_t MemberCount = arrlenu(t->ast->members);
     for (size_t i = 0; i < MemberCount; i++) {
         // @FIXME: aggregate types cannot contain other aggregate types.
@@ -196,7 +159,7 @@ static size_t _get_type_member_index(aggregate_type_t* t, const char* member_nam
     return 0;
 }
 
-static const char* _get_store_ins(const datatype_t* register_type) {
+const char* qbe_get_store_ins(const datatype_t* register_type) {
     switch (register_type->kind) {
         case DATATYPE_ARRAY:
         case DATATYPE_POINTER: {
@@ -218,7 +181,7 @@ static const char* _get_store_ins(const datatype_t* register_type) {
             IF_TYPE_RET("f32", "stores");
             IF_TYPE_RET("f64", "stored");
 #undef IF_TYPE_RET
-            PANIC("Size not implemented for type '%s'", register_type->typename);
+            PANIC("Store instruction not implemented for type '%s'", register_type->typename);
         }
 
         default: {
@@ -229,7 +192,7 @@ static const char* _get_store_ins(const datatype_t* register_type) {
     return 0;
 }
 
-static const char* _get_load_ins(const datatype_t* register_type) {
+const char* qbe_get_load_ins(const datatype_t* register_type) {
     switch (register_type->kind) {
         case DATATYPE_ARRAY:
         case DATATYPE_POINTER: {
@@ -263,7 +226,7 @@ static const char* _get_load_ins(const datatype_t* register_type) {
 }
 
 // base types: w | l | s | d
-static char _get_base_type(const datatype_t* register_type) {
+char qbe_get_base_type(const datatype_t* register_type) {
     switch (register_type->kind) {
         case DATATYPE_ARRAY:
         case DATATYPE_POINTER: {
@@ -298,7 +261,7 @@ static char _get_base_type(const datatype_t* register_type) {
 }
 
 // base types + "sb" | "ub" | "sh" | "uh"
-static const char* _get_abi_type(const datatype_t* register_type) {
+const char* qbe_get_abi_type(const datatype_t* register_type) {
     switch (register_type->kind) {
         case DATATYPE_ARRAY:
         case DATATYPE_POINTER: {
@@ -333,7 +296,7 @@ static const char* _get_abi_type(const datatype_t* register_type) {
     return 0;
 }
 
-static temporary_t _get_ptr_with_offset(FILE* f, temporary_t begin_ptr, temporary_t offset) {
+temporary_t qbe_get_ptr_with_offset(FILE* f, temporary_t begin_ptr, temporary_t offset) {
     // @FIXME: Casts a temporary to long, even thought it already might be :)
     // Produces the following code:
     //  %casted_offset =l extsw % offset
@@ -359,7 +322,7 @@ static temporary_t _get_ptr_with_offset(FILE* f, temporary_t begin_ptr, temporar
     return ptr;
 }
 
-static temporary_t _get_array_ptr(
+temporary_t qbe_get_array_ptr(
     FILE* f,
     temporary_t array_ptr,
     temporary_t index_temp,
@@ -378,12 +341,11 @@ static temporary_t _get_array_ptr(
     fprint_temp(f, index_temp);
 
     // Multiply index with size of an element in the array
-    const size_t ElementSize = _get_type_size(element_type, ctx);
+    const size_t ElementSize = qbe_get_type_size(element_type, ctx);
     if (ElementSize > 1) {
         fprintf(f, "\n\t");
         fprint_temp(f, casted_index);
         fprintf(f, "=l mul %zu, ", ElementSize);
-        fprintf(f, ", ");
         fprint_temp(f, casted_index);
     }
 
@@ -395,12 +357,12 @@ static temporary_t _get_array_ptr(
     fprint_temp(f, array_ptr);
     fprintf(f, ", ");
     fprint_temp(f, casted_index);
-    fprintf(f, " # Index nth\n");
+    fprintf(f, "\n");
 
     return ptr;
 }
 
-static variable_t* _find_variable(const char* name, backend_ctx_t* ctx) {
+variable_t* qbe_find_variable(const char* name, backend_ctx_t* ctx) {
     // Search for temp
     size_t VarLen = arrlenu(ctx->variables);
     for (size_t i = 0; i < VarLen; i++) {
@@ -412,15 +374,15 @@ static variable_t* _find_variable(const char* name, backend_ctx_t* ctx) {
     return NULL;
 }
 
-static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* ctx) {
+temporary_t qbe_generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* ctx) {
     switch (ast->kind) {
         // @FIXME: Actually implement this.
         case AST_CAST_STATEMENT: {
-            return _generate_expr_node(f, ast->data.cast_statement.expr, ctx);
+            return qbe_generate_expr_node(f, ast->data.cast_statement.expr, ctx);
         }
 
         case AST_UNARY_OP: {
-            return _generate_expr_node(f, ast->data.unary_op.operand, ctx); 
+            return qbe_generate_expr_node(f, ast->data.unary_op.operand, ctx); 
         }
 
         case AST_BOOL_LITERAL: {
@@ -448,78 +410,16 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
         }
 
         case AST_STRING_LITERAL: {
-            const size_t AllocSize = strlen(ast->data.literal) + 1;
-
-            // Allocate storage for the string
-            const temporary_t ArrayBegin  = get_temporary();
-            fprintf(f, "\t");
-            fprint_temp(f, ArrayBegin);
-            fprintf(f, "=l alloc4 %zu\n", AllocSize);
-
-            // Store the characters from the string to the array
-            for (size_t i = 0; i < AllocSize; i++) {
-                const temporary_t IndexPtr  = get_temporary();
-                const char Char = ast->data.literal[i];
-
-                // Ptr to index
-                fprintf(f, "\t");
-                fprint_temp(f, IndexPtr);
-                fprintf(f, " =l add ");
-                fprint_temp(f, ArrayBegin);
-                fprintf(f, ", %zu # Str[%zu] \n", i, i);
-
-                // Store a byte into index
-                fprintf(f, "\tstoreb %u, ", Char);
-                fprint_temp(f, IndexPtr);
-                fprintf(f, " # Str[%zu] <- %u\n", i, Char);
-            }
-
-
-            return ArrayBegin;
+            return qbe_generate_string_literal(f, ast);
         }
 
         case AST_ARRAY_INITIALIZER_LIST: {
-            const datatype_t* ExprType = &ast->expr_type;
-            DEBUG_ASSERT(ExprType->kind == DATATYPE_ARRAY, "?");
-
-            const size_t ElementSize = _get_type_size(ExprType, ctx);
-            const size_t ArraySize = arrlenu(ast->data.array_initializer_list.exprs);
-            const size_t AllocSize = ArraySize * ElementSize;
-
-            // Allocate storage for the string
-            const temporary_t ArrayBegin  = get_temporary();
-            fprintf(f, "\t");
-            fprint_temp(f, ArrayBegin);
-            fprintf(f, "=l alloc4 %zu\n", AllocSize);
-
-            // Store the characters from the string to the array
-            for (size_t i = 0; i < ArraySize; i++) {
-                // Make a pointer to the index
-                const temporary_t IndexPtr  = get_temporary();
-                fprintf(f, "\t");
-                fprint_temp(f, IndexPtr);
-                fprintf(f, " =l add ");
-                fprint_temp(f, ArrayBegin);
-                fprintf(f, ", %zu # Array[%zu] \n", i, i);
-
-                // Get expr
-                fprintf(f, "# Array[%zu] expr \n", i);
-                const temporary_t ValueTemp  = _generate_expr_node(f, ast->data.array_initializer_list.exprs[i], ctx);
-
-                // Store a byte into index
-                fprintf(f, "\t%s ", _get_store_ins(ExprType->base));
-                fprint_temp(f, ValueTemp);
-                fprintf(f, ", ");
-                fprint_temp(f, IndexPtr);
-                fprintf(f, "\n");
-            }
-
-            return ArrayBegin;
+            return qbe_generate_array_initializer(f, ast, ctx);
         }
 
         case AST_GET_VARIABLE: {
             // Search for temp
-            variable_t* var = _find_variable(ast->data.literal, ctx);
+            variable_t* var = qbe_find_variable(ast->data.literal, ctx);
             if (var) {
                 return var->temp;
             }
@@ -537,20 +437,20 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
                     "Invalid assignment!"
                 );
 
-                const temporary_t Temp = _generate_expr_node(f, ast->data.binary_op.right, ctx);
+                const temporary_t Temp = qbe_generate_expr_node(f, ast->data.binary_op.right, ctx);
                 if (Lhs->kind == AST_BINARY_OP && Lhs->data.binary_op.operation == BINARY_OP_ARRAY_INDEX) {
                     // Get ptr to index
                     const ast_node_t* ArrayIndexAst = ast->data.binary_op.left;
                     const datatype_t ElementType = ArrayIndexAst->expr_type;
-                    temporary_t array_temp = _generate_expr_node(f, ArrayIndexAst->data.binary_op.left, ctx);
-                    temporary_t index_temp = _generate_expr_node(f, ArrayIndexAst->data.binary_op.right, ctx);
-                    temporary_t ptr_temp = _get_array_ptr(f, array_temp, index_temp, &ElementType, ctx);
+                    temporary_t array_temp = qbe_generate_expr_node(f, ArrayIndexAst->data.binary_op.left, ctx);
+                    temporary_t index_temp = qbe_generate_expr_node(f, ArrayIndexAst->data.binary_op.right, ctx);
+                    temporary_t ptr_temp = qbe_get_array_ptr(f, array_temp, index_temp, &ElementType, ctx);
 
                     // Eval expr
-                    temporary_t expr_temp = _generate_expr_node(f, ast->data.binary_op.right, ctx);
+                    temporary_t expr_temp = qbe_generate_expr_node(f, ast->data.binary_op.right, ctx);
                     
                     // Store
-                    fprintf(f, "\t%s ", _get_store_ins(&ElementType));
+                    fprintf(f, "\t%s ", qbe_get_store_ins(&ElementType));
                     fprint_temp(f, expr_temp);
                     fprintf(f, ", ");
                     fprint_temp(f, ptr_temp);
@@ -564,24 +464,24 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
                     const char* MemberName = GetMember->data.get_member.member;
                     
                     // Find struct
-                    const variable_t* Variable = _find_variable(GetMember->data.get_member.expr->data.literal, ctx);
+                    const variable_t* Variable = qbe_find_variable(GetMember->data.get_member.expr->data.literal, ctx);
                     const datatype_t* StructureType = datatype_underlying_type(&Variable->var_decl->type);
-                    const aggregate_type_t* Type = _find_type(StructureType->typename, ctx);
-                    const size_t Offset = _get_type_member_offset(Type, MemberName, ctx);
+                    const aggregate_type_t* Type = qbe_find_type(StructureType->typename, ctx);
+                    const size_t Offset = qbe_get_type_member_offset(Type, MemberName, ctx);
 
                     // Get index
-                    const temporary_t StructTemp = _generate_expr_node(f, GetMember->data.get_member.expr, ctx);
+                    const temporary_t StructTemp = qbe_generate_expr_node(f, GetMember->data.get_member.expr, ctx);
                     const temporary_t OffsetTemp = get_temporary();
                     fprintf(f, "\t");        
                     fprint_temp(f, OffsetTemp);        
                     fprintf(f, "=l copy %zu\n", Offset);
-                    const temporary_t PtrTemp = _get_ptr_with_offset(f, StructTemp, OffsetTemp);
+                    const temporary_t PtrTemp = qbe_get_ptr_with_offset(f, StructTemp, OffsetTemp);
 
                     // Eval expr
-                    const temporary_t ExprTemp = _generate_expr_node(f, ast->data.binary_op.right, ctx);
+                    const temporary_t ExprTemp = qbe_generate_expr_node(f, ast->data.binary_op.right, ctx);
                     
                     // Store
-                    fprintf(f, "\t%s ", _get_store_ins(&ElementType));
+                    fprintf(f, "\t%s ", qbe_get_store_ins(&ElementType));
                     fprint_temp(f, ExprTemp);
                     fprintf(f, ", ");
                     fprint_temp(f, PtrTemp);
@@ -590,7 +490,7 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
                 }
                 else {
                     const char* VarName = ast->data.binary_op.left->data.literal;
-                    const variable_t* Var = _find_variable(VarName, ctx);
+                    const variable_t* Var = qbe_find_variable(VarName, ctx);
                     if (!Var) {
                         PANIC("no temporary for variable '%s'!", VarName);
                     }
@@ -598,13 +498,13 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
                     fprint_temp(f, Var->temp);
                 }
 
-                fprintf(f, "=%c copy", _get_base_type(&ast->expr_type));
+                fprintf(f, "=%c copy", qbe_get_base_type(&ast->expr_type));
                 fprint_temp(f, Temp);
                 fprintf(f, "\n");
                 return Temp;
             }
 
-            temporary_t lhs = _generate_expr_node(f, ast->data.binary_op.left, ctx);
+            temporary_t lhs = qbe_generate_expr_node(f, ast->data.binary_op.left, ctx);
 
             char* qbe_operation = NULL;
             bool is_comparision = false;
@@ -614,7 +514,7 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
                 case BINARY_OP_MULTIPLY : { qbe_operation = "=w mul "; break; }
                 case BINARY_OP_ASSIGN   : { qbe_operation = "=w "; break; }
 
-#define _SIGN_INS(sign_ins, unsign_ins) _is_type_signed(&ast->data.binary_op.left->expr_type) ? "=w " sign_ins : "=w " unsign_ins
+#define _SIGN_INS(sign_ins, unsign_ins) qbe_is_type_signed(&ast->data.binary_op.left->expr_type) ? "=w " sign_ins : "=w " unsign_ins
                 case BINARY_OP_LESS_THAN                : { is_comparision = true; qbe_operation = _SIGN_INS("csltw", "cultw"); break; }
                 case BINARY_OP_LESS_OR_EQUAL_THAN       : { is_comparision = true; qbe_operation = _SIGN_INS("cslew", "culew"); break; }
                 case BINARY_OP_GREATER_THAN             : { is_comparision = true; qbe_operation = _SIGN_INS("csgtw", "cugtw"); break; }
@@ -625,14 +525,14 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
 #undef _SIGN_INS
 
                 case BINARY_OP_ARRAY_INDEX: {
-                    temporary_t rhs = _generate_expr_node(f, ast->data.binary_op.right, ctx);
-                    temporary_t ptr = _get_array_ptr(f, lhs, rhs, &ast->expr_type, ctx);
+                    temporary_t rhs = qbe_generate_expr_node(f, ast->data.binary_op.right, ctx);
+                    temporary_t ptr = qbe_get_array_ptr(f, lhs, rhs, &ast->expr_type, ctx);
 
                     // Get memory from that index
                     temporary_t result = get_temporary();
                     fprintf(f, "\t");
                     fprint_temp(f, result);
-                    fprintf(f, "%s ", _get_load_ins(&ast->expr_type));
+                    fprintf(f, "%s ", qbe_get_load_ins(&ast->expr_type));
                     fprint_temp(f, ptr);
                     fprintf(f, "# indexed element\n");
 
@@ -644,7 +544,7 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
                 }
             }
 
-            temporary_t rhs = _generate_expr_node(f, ast->data.binary_op.right, ctx);
+            temporary_t rhs = qbe_generate_expr_node(f, ast->data.binary_op.right, ctx);
 
             // cast to right type lengths
             if (is_comparision) {
@@ -691,51 +591,12 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
         }
 
         case AST_FUNCTION_CALL: {
-            const ast_function_call_t* FuncCall = &ast->data.function_call;
-
-
-            // Make temporaries for the arguments
-            temporary_t* arg_temps = NULL;
-            const size_t ArgCount = arrlenu(FuncCall->args);
-            for (size_t i = 0; i < ArgCount; i++) {
-                if (FuncCall->args[i]->data.variable_declaration.type.kind == DATATYPE_VARIADIC)
-                    continue;
-                arrput(arg_temps, _generate_expr_node(f, FuncCall->args[i], ctx));
-            }
-
-            // 
-            temporary_t r = get_temporary();
-            fprintf(f, "\t");
-            fprint_temp(f, r);
-            fprintf(f, "=%s call $%s(", _get_abi_type(&ast->expr_type), FuncCall->name);
-
-            // Pass arguments to the function call
-            int was_variadic = 0; // @HACK: 
-            for (size_t i = 0; i < ArgCount; i++) {
-                const ast_node_t* Expr = FuncCall->args[i];
-                if (Expr->data.variable_declaration.type.kind == DATATYPE_VARIADIC){
-                    fprintf(f, "..., ");
-                    was_variadic++;
-                    continue;
-                }
-
-                const char* ArgType = _get_abi_type(&Expr->expr_type);
-                if (ArgType == NULL) {
-                    fprintf(f, ":%s ", Expr->expr_type.typename);
-                } else {
-                    fprintf(f, "%s ", ArgType);
-                }
-                fprint_temp(f, arg_temps[i-was_variadic]);
-                fprintf(f, ", ");
-            }
-            fprintf(f, ")\n");
-            arrfree(arg_temps);
-            return r;
+            return qbe_generate_function_call(f, ast, ctx);
         }
 
         case AST_RETURN: {
             if (ast->data.expr) {
-                temporary_t r = _generate_expr_node(f, ast->data.expr, ctx);
+                temporary_t r = qbe_generate_expr_node(f, ast->data.expr, ctx);
                 fprintf(f, "\tret ");
                 fprint_temp(f, r);
                 fprintf(f, "\n");
@@ -747,7 +608,7 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
         }
 
         case AST_VARIABLE_DECLARATION: {
-            temporary_t r = _generate_expr_node(f, ast->data.variable_declaration.expr, ctx);
+            temporary_t r = qbe_generate_expr_node(f, ast->data.variable_declaration.expr, ctx);
             const variable_t VarTemp = {.var_decl = &ast->data.variable_declaration, .temp = r};
             arrput(ctx->variables, VarTemp);
             return r;
@@ -755,15 +616,15 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
         
         case AST_GET_MEMBER: {
             // Find type
-            aggregate_type_t* type = _find_type(
+            aggregate_type_t* type = qbe_find_type(
                 datatype_underlying_type(&ast->data.get_member.expr->expr_type)->typename,
                 ctx
             );
             DEBUG_ASSERT(type, "Struct declaration was not found!");
 
             const char* FieldName = ast->data.get_member.member;
-            const size_t Offset = _get_type_member_offset(type, FieldName, ctx);
-            const temporary_t ExprTemp = _generate_expr_node(f, ast->data.get_member.expr, ctx);
+            const size_t Offset = qbe_get_type_member_offset(type, FieldName, ctx);
+            const temporary_t ExprTemp = qbe_generate_expr_node(f, ast->data.get_member.expr, ctx);
 
             // Ptr
             const temporary_t PtrAdd = get_temporary();
@@ -777,7 +638,7 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
             temporary_t result = get_temporary();
             fprintf(f, "\t");
             fprint_temp(f, result);
-            fprintf(f, "%s ", _get_load_ins(&ast->expr_type));
+            fprintf(f, "%s ", qbe_get_load_ins(&ast->expr_type));
             fprint_temp(f, PtrAdd);
             fprintf(f, "# indexed element\n");
 
@@ -785,84 +646,11 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
         }
 
         case AST_WHILE_LOOP: {
-            const ast_while_loop_t* WhileLoop = &ast->data.while_loop;
-
-            const label_t LabelComparision = get_label();
-            const label_t LabelBegin = get_label();
-            const label_t LabelEnd = get_label();
-
-            // Begin label
-            fprint_label(f, LabelComparision); 
-            fprintf(f, "\n");
-
-            // Comparision
-            const temporary_t CompTemp = _generate_expr_node(f, WhileLoop->expr, ctx);
-            fprintf(f, "\tjnz ");
-            fprint_temp(f, CompTemp);
-            fprintf(f, ", ");
-            fprint_label(f, LabelBegin); 
-            fprintf(f, ", ");
-            fprint_label(f, LabelEnd); 
-            fprintf(f, "\n"); 
-
-            // Body
-            fprint_label(f, LabelBegin);
-            fprintf(f, "\n"); 
-            const size_t BodyCount = arrlenu(WhileLoop->body);
-            for (size_t i = 0; i < BodyCount; i++) {
-                _generate_expr_node(f, WhileLoop->body[i], ctx);
-            }
-            fprintf(f, "\tjmp ");
-            fprint_label(f, LabelComparision); 
-            fprintf(f, "\n");
-
-            // End Label
-            fprint_label(f, LabelEnd); 
-            fprintf(f, "\n");
-
-            return CompTemp;
+            return qbe_generate_while_loop(f, ast, ctx);
         }
 
         case AST_IF_STATEMENT: {
-            const ast_if_statement_t* IfStatement = &ast->data.if_statement;
-
-            const label_t LabelComparision = get_label();
-            const label_t LabelIf = get_label();
-            const label_t LabelElse = get_label();
-            const label_t LabelOut = get_label();
-
-            fprint_label(f, LabelComparision);
-            fprintf(f, "\n");
-            const temporary_t CompTemp = _generate_expr_node(f, IfStatement->expr, ctx);
-            fprintf(f, "\tjnz ");
-            fprint_temp(f, CompTemp);
-            fprintf(f, ", ");
-            fprint_label(f, LabelIf); 
-            fprintf(f, ", ");
-            fprint_label(f, LabelElse); 
-            fprintf(f, "\n"); 
-
-            // If Body
-            fprint_label(f, LabelIf);
-            fprintf(f, "\n");
-            const size_t BodyCount = arrlenu(IfStatement->body);
-            for (size_t i = 0; i < BodyCount; i++) {
-                _generate_expr_node(f, IfStatement->body[i], ctx);
-            }
-            fprintf(f, "\tjmp ");
-            fprint_label(f, LabelOut);
-            fprintf(f, "\n");
-
-            // Else Body
-            fprint_label(f, LabelElse);
-            fprintf(f, "\n");
-            const size_t ElseBodyCount = arrlenu(IfStatement->else_body);
-            for (size_t i = 0; i < ElseBodyCount; i++) {
-                _generate_expr_node(f, IfStatement->else_body[i], ctx);
-            }
-            fprint_label(f, LabelOut);
-            fprintf(f, "\n");
-            return CompTemp;
+            return qbe_generate_if_statement(f, ast, ctx);
         }
 
         case AST_STRUCT_INITIALIZER_LIST: {
@@ -877,7 +665,7 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
                 }
             }
             DEBUG_ASSERT(type, "Struct declaration was not found!");
-            const size_t TypeSize = _get_aggregate_type_size(type, ctx); 
+            const size_t TypeSize = qbe_get_aggregate_type_size(type, ctx); 
 
             // Allocate
             const temporary_t Ptr = get_temporary(); 
@@ -888,9 +676,9 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
             // Initialize members
             const size_t ExprCount = arrlenu(InitList->fields);
             for (size_t i = 0; i < ExprCount; i++) {
-                const size_t Offset = _get_type_member_offset(type, InitList->fields[i].name, ctx);
-                const size_t MemberIndex = _get_type_member_index(type, InitList->fields[i].name);
-                const temporary_t Res = _generate_expr_node(f, InitList->fields[i].expr, ctx);
+                const size_t Offset = qbe_get_type_member_offset(type, InitList->fields[i].name, ctx);
+                const size_t MemberIndex = qbe_get_type_member_index(type, InitList->fields[i].name);
+                const temporary_t Res = qbe_generate_expr_node(f, InitList->fields[i].expr, ctx);
 
                 // Ptr
                 const temporary_t PtrAdd = get_temporary();
@@ -901,7 +689,7 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
                 fprintf(f, ", %zu\n", Offset);
                 
                 // Store @FIXME: type specific store
-                fprintf(f, "\t%s ", _get_store_ins(&type->ast->members[MemberIndex].type));
+                fprintf(f, "\t%s ", qbe_get_store_ins(&type->ast->members[MemberIndex].type));
                 fprint_temp(f, Res);
                 fprintf(f, ", ");
                 fprint_temp(f, PtrAdd);
@@ -919,46 +707,13 @@ static temporary_t _generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* 
     return get_temporary();
 }
 
-static void _generate_struct_members(FILE* f, const ast_struct_declaration_t* decl, backend_ctx_t* ctx) {
-    const size_t MemCount = arrlenu(decl->members);
-    for (size_t i = 0; i < MemCount; i++) {
-        char c = _get_base_type(&decl->members[i].type);
-        if (c != '\0') {
-            fprintf(f, "%c, ", _get_base_type(&decl->members[i].type));
-        }
-        else {
-            const datatype_t MemberType = decl->members[i].type; 
-            RUNTIME_ASSERT(MemberType.kind == DATATYPE_PRIMITIVE, "only primitive types are supported!");
-            const aggregate_type_t* InnerStruct = _find_type(MemberType.typename, ctx);
-            _generate_struct_members(f, InnerStruct->ast, ctx);
-        }
-    }
-}
-
 static void _generate_ast_global_node(FILE* f, ast_node_t* ast, backend_ctx_t* ctx) {
     switch (ast->kind) {
         case AST_STRUCT_DECLARATION: {
             ast_struct_declaration_t* decl = &ast->data.struct_declaration;
-            
             fprintf(f, "type :%s = { ", decl->name);
-            _generate_struct_members(f, decl, ctx);
-            /*
-            const size_t MemCount = arrlenu(decl->members);
-            for (size_t i = 0; i < MemCount; i++) {
-                
-                char c = _get_base_type(&decl->members[i].type);
-                if (c != '\0') {
-                    fprintf(f, "%c, ", _get_base_type(&decl->members[i].type));
-                }
-                else {
-
-
-                }
-            }
-            */
-
+            qbe_generate_struct_members(f, decl, ctx);
             fprintf(f, " }\n");
-
             arrput(ctx->types, (aggregate_type_t){ .ast = decl });
             break;
         }
@@ -975,7 +730,7 @@ static void _generate_ast_global_node(FILE* f, ast_node_t* ast, backend_ctx_t* c
 
             // TODO: returns custom types
             fprintf(f, "function ");
-            fprintf(f, "%s $%s(", _get_abi_type(&FuncDecl->return_type), FuncDecl->name);
+            fprintf(f, "%s $%s(", qbe_get_abi_type(&FuncDecl->return_type), FuncDecl->name);
 
             const size_t ArrCount = arrlenu(FuncDecl->args);
             for (size_t i = 0; i < ArrCount; i++) {
@@ -991,7 +746,7 @@ static void _generate_ast_global_node(FILE* f, ast_node_t* ast, backend_ctx_t* c
             // Body
             const size_t BodyCount = arrlenu(FuncDecl->body);
             for (size_t i = 0; i < BodyCount; i++) {
-                _generate_expr_node(f, FuncDecl->body[i], ctx);
+                qbe_generate_expr_node(f, FuncDecl->body[i], ctx);
             }
 
             fprintf(f, "}\n");
