@@ -54,6 +54,7 @@ _DEF(TOK_IDENTIFIER, "<identifier>"),
 #if defined(_TK_KEYWORDS)
 /* Keywords */
 _DEF(TOK_KEYWORD_IMPORT, "#import"),
+_DEF(TOK_KEYWORD_INCLUDE, "#include"),
 _DEF(TOK_KEYWORD_FN, "fn"),
 _DEF(TOK_KEYWORD_RETURN, "return"),
 _DEF(TOK_KEYWORD_CONTINUE, "continue"),

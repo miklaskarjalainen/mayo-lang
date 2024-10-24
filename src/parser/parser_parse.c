@@ -6,6 +6,7 @@
 #include "../common/error.h"
 #include "../compile_error.h"
 #include "../parser.h"
+#include "../lexer.h"
 
 #include "ast_eval.h"
 #include "ast_type.h"
@@ -574,6 +575,30 @@ static ast_node_t* parse_struct_declaration(parser_t* parser) {
     return out;
 }
 
+static void parse_include_statement(parser_t* parser, ast_node_t*** global_scope) {
+    // Triple pointer magic :p
+    DEBUG_ASSERT(parser_peek_behind(parser).kind == TOK_KEYWORD_INCLUDE, "?");
+
+    // Parse included file
+    const char* Fpath = parser_eat_expect(parser, TOK_CONST_STRING).data.str;
+    parser_eat_expect(parser, TOK_SEMICOLON);
+
+    lexer_t lexer = { 0 };
+    lexer_init(&lexer, parser->arena, Fpath);
+    lexer_lex(&lexer);
+
+    parser_t sub_parser = parser_new(parser->arena, &lexer);
+    ast_node_t** sub_ast = parse_global_scope(&sub_parser);
+
+    // Append 
+    const size_t Size = arrlenu(sub_ast);
+    for (size_t i = 0; i < Size; i++) {
+        arrpush(*global_scope, sub_ast[i]);
+    }
+
+    arrfree(sub_ast);
+}
+
 ast_node_t** parse_global_scope(parser_t* parser) {
     ast_node_t** global_scope = NULL;
 
@@ -587,6 +612,12 @@ ast_node_t** parse_global_scope(parser_t* parser) {
                 arrpush(global_scope, ast);
                 break;
             }
+
+            case TOK_KEYWORD_INCLUDE: {
+                parse_include_statement(parser, &global_scope);
+                break;
+            }
+
             case TOK_KEYWORD_LET: {
                 ast_node_t* ast = parse_variable_declaration(parser);
                 arrpush(global_scope, ast);
