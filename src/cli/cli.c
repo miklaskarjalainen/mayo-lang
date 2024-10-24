@@ -49,6 +49,16 @@ static bool _exec_set_output_file(program_params_t* params, char* arg) {
     return true;
 }
 
+static bool _exec_cflags(program_params_t* params, char* arg) {
+    if (arg == NULL) {
+        params->do_compilation = false;
+        printf("NO ARGUMENT PASSED! :^(\n");
+        return true;
+    }
+    params->cflags = arg;
+    return true;
+}
+
 static const struct {
     const char* long_cmd;
     const char* short_cmd;
@@ -59,6 +69,7 @@ static const struct {
     {"--version", "-v", "gives more details about the program", _exec_version},
     {NULL, "-o", "sets the output file", _exec_set_output_file},
     {"--echo", "-e", "prints to screen (for CLI debugging)", _exec_echo},
+    {"--CFLAGS", NULL, "pass arguments to gcc", _exec_cflags},
 };
 
 #ifdef NDEBUG
@@ -113,6 +124,7 @@ program_params_t cli_parse(int argc, char** argv) {
         .input_files = NULL,
         .output_file = DEFAULT_EXECUTABLE,
         .do_compilation = true,
+        .cflags = ""
     };
 
     // parse input files
