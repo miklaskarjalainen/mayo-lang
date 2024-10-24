@@ -512,6 +512,7 @@ temporary_t qbe_generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* ctx)
                 case BINARY_OP_ADD      : { qbe_operation = "=w add"; break; }
                 case BINARY_OP_SUBTRACT : { qbe_operation = "=w sub "; break; }
                 case BINARY_OP_MULTIPLY : { qbe_operation = "=w mul "; break; }
+                case BINARY_OP_MODULO   : { qbe_operation = "=w rem "; break; }
                 case BINARY_OP_ASSIGN   : { qbe_operation = "=w "; break; }
 
 #define _SIGN_INS(sign_ins, unsign_ins) qbe_is_type_signed(&ast->data.binary_op.left->expr_type) ? "=w " sign_ins : "=w " unsign_ins
