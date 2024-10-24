@@ -32,7 +32,7 @@ static int _exec_echo(program_params_t* params, char** arg) {
     params->do_compilation = false;
     if (*arg == NULL) {
         printf("NO ARGUMENT PASSED! :^(\n");
-        return true;
+        return 0;
     }
     printf("ECHO: %s\n", *arg);
     return 1;
