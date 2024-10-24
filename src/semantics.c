@@ -93,7 +93,7 @@ static void _analyze_func_call(global_scope_t* global, const sym_table_t* variab
 
     for (size_t i = 0; i < CallArgCount; i++) {
         // Arguments for the variadic part are not type-checked.
-        const bool CheckArgType = IsVariadic && (DeclArgCount - 1 > i);
+        const bool CheckArgType = !IsVariadic && (DeclArgCount - 1 > i);
 
         ast_variable_declaration_t* argument_decl = &FuncDecl->data.function_declaration.args[i].data.variable_declaration;
         ast_node_t* argument_expr = FuncCall->args[i];
