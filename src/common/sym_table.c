@@ -6,9 +6,9 @@
 #include "utils.h"
 
 #ifdef NDEBUG
-#define TABLE_ARENA_CAPACITY 4096
-#else
 #define TABLE_ARENA_CAPACITY 16
+#else
+#define TABLE_ARENA_CAPACITY 4096
 #endif
 
 static uint32_t _hash_str(const char* str) {
@@ -24,7 +24,7 @@ void sym_table_init(sym_table_t* table) {
     table->parent = NULL;
 }
 
-void sym_table_insert(sym_table_t* table, const char* key, void* data) {
+void sym_table_insert(sym_table_t* table, const char* key, struct ast_node_t* data) {
     const uint32_t Index = _hash_str(key) % ARRAY_LEN(table->head);
 
     symbol_t* sym = &table->head[Index];

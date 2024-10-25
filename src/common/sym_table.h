@@ -24,10 +24,12 @@
 
 #define SYM_TABLE_CAPACITY 32
 
+struct ast_node_t;
+
 //? TBH just a dynamic array would probably be sufficient, since most scopes don't have many identifiers.
 typedef struct symbol_t {
     const char* key;
-    void* data;
+    struct ast_node_t* data;
     struct symbol_t* other;
 } symbol_t;
 
@@ -38,7 +40,7 @@ typedef struct sym_table_t {
 } sym_table_t;
 
 void sym_table_init(sym_table_t* table);
-void sym_table_insert(sym_table_t* table, const char* key, void* data);
+void sym_table_insert(sym_table_t* table, const char* key, struct ast_node_t* data);
 void* sym_table_get(const sym_table_t* table, const char* key);
 void sym_table_clear(sym_table_t* table);
 void sym_table_cleanup(sym_table_t* table);
