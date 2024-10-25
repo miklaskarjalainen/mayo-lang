@@ -70,6 +70,12 @@ static int _exec_enable_print_ast(program_params_t* params, char** arg) {
     return 0;
 }
 
+static int _exec_enable_ast_constant_folding(program_params_t* params, char** arg) {
+    UNUSED(arg);
+    params->opt_ast_constant_folding = true;
+    return 0;
+}
+
 static const struct {
     const char* long_cmd;
     const char* short_cmd;
@@ -83,6 +89,7 @@ static const struct {
     {"--print-tokens", NULL, "prints the lexer tokens to stdout", _exec_enable_print_tokens},
     {"--print-ast", NULL, "prints the ast to stdout", _exec_enable_print_ast},
     {"--CFLAGS", NULL, "pass arguments to gcc", _exec_cflags},
+    {"--fconstant-folding", NULL, "enables ast's constant folding", _exec_enable_ast_constant_folding},
 };
 
 #ifdef NDEBUG
@@ -139,7 +146,9 @@ program_params_t cli_parse(int argc, char** argv) {
         .do_compilation = true,
         .print_ast = false,
         .print_tokens = false,
-        .cflags = ""
+        .cflags = "",
+
+        .opt_ast_constant_folding = false,
     };
 
     // parse input files

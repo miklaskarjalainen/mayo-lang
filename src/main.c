@@ -13,6 +13,7 @@
 #include "parser/ast_type.h"
 #include "parser/ast_print.h"
 #include "backend_qbe.h"
+#include "optimizer/optimize.h"
 #include "string.h"
 
 #define STB_DS_IMPLEMENTATION
@@ -29,8 +30,14 @@ jmp_buf g_Jumpluff;
 
 
 int main(int argc, char** argv) {
-    PERF_BEGIN(ProgramBegin);
+    clock_t arg_parse_duration = 0;
+    clock_t lex_duration = 0;
+    clock_t parse_duration = 0;
+    clock_t analysis_duration = 0;
+    clock_t qbe_gen_duration = 0;
 
+    PERF_BEGIN(ProgramBegin);
+    
     int exit_code = SETJUMP();
     if (!exit_code) {
         g_Params = cli_parse(argc, argv);
@@ -41,7 +48,7 @@ int main(int argc, char** argv) {
     else {
         goto clean_params;
     }
-    const clock_t ArgParseDuration = PERF_END(ProgramBegin);
+    arg_parse_duration = PERF_END(ProgramBegin);
 
     // Get path 
     const size_t InputFileCount = arrlenu(g_Params.input_files);
@@ -55,11 +62,6 @@ int main(int argc, char** argv) {
     lexer_t lexer = { 0 };
     lexer_init(&lexer, &arena, Path);
     parser_t parser = parser_new(&arena, &lexer);
-
-    clock_t lex_duration = 0;
-    clock_t parse_duration = 0;
-    clock_t analysis_duration = 0;
-    clock_t qbe_gen_duration = 0;
 
     exit_code = SETJUMP();
     if (!exit_code) {
@@ -77,15 +79,17 @@ int main(int argc, char** argv) {
         // Parsing
         PERF_BEGIN(ParseBegin);
         parser_parse(&parser);
-        if (g_Params.print_ast) {
-            print_ast_tree(parser.node_root);
-        }
         parse_duration = PERF_END(ParseBegin);
 
         PERF_BEGIN(AnalysisBegin);
         semantic_analysis(&arena, parser.node_root);
+        perform_ast_optimizations(parser.node_root);
         analysis_duration = PERF_END(AnalysisBegin);
-        
+
+        if (g_Params.print_ast) {
+            print_ast_tree(parser.node_root);
+        }
+
         // Output qbe
         PERF_BEGIN(QbeBegin);
         FILE* f = fopen("output.ssa", "w");
@@ -121,7 +125,7 @@ clean_params:;
 
     // Print performance
     printf("PERFORMANCE:\n");
-    printf("  Arg parse duration: ");     PRINT_DURATION(ArgParseDuration); printf("\n");
+    printf("  Arg parse duration: ");     PRINT_DURATION(arg_parse_duration); printf("\n");
     printf("  Code lex duration: ");      PRINT_DURATION(lex_duration); printf("\n");
     printf("  Code parse duration: ");    PRINT_DURATION(parse_duration); printf("\n");
     printf("  Code analysis duration: "); PRINT_DURATION(analysis_duration); printf("\n");

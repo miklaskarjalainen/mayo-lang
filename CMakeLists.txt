@@ -35,6 +35,8 @@ set(SOURCE_FILES
     
     src/semantics.c src/semantics.h
 
+    src/optimizer/optimize.h src/optimizer/optimize_ast.c
+
     src/backend_qbe.c src/backend_qbe.h
     src/backend/impl_gen.c
 

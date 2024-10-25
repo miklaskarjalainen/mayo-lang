@@ -8,6 +8,9 @@ typedef struct program_params_t {
     char* cflags;
     bool print_tokens, print_ast;
     bool do_compilation;
+
+    // optimization flags
+    bool opt_ast_constant_folding;
 } program_params_t;
 
 extern program_params_t g_Params;
