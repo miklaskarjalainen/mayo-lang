@@ -770,9 +770,11 @@ void generate_qbe(FILE* f, ast_node_t* ast) {
         .types = NULL
     };
 
+    arrsetcap(ctx.variables, 50);
+
     const size_t Len = arrlenu(ast->data.translation_unit.body);
     for (size_t i = 0; i < Len; i++) {
-        arrsetlen(ctx.variables, 0); // clear variables
+        stbds_header(ctx.variables)->length = 0; // clear variables
         _generate_ast_global_node(f, ast->data.translation_unit.body[i], &ctx);
     }
 
