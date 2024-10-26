@@ -409,6 +409,14 @@ temporary_t qbe_generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* ctx)
             return r;
         }
 
+        case AST_FLOAT_LITERAL: {
+            temporary_t r = get_temporary();
+            fprintf(f, "\t");
+            fprint_temp(f, r);
+            fprintf(f, "=s copy s_%f\n", ast->data.f32);
+            return r;
+        }
+
         case AST_STRING_LITERAL: {
             return qbe_generate_string_literal(f, ast);
         }

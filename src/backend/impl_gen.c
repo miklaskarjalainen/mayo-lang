@@ -111,12 +111,34 @@ temporary_t qbe_generate_function_call(
 
 
     // Make temporaries for the arguments
-    temporary_t* arg_temps = NULL;
     const size_t ArgCount = arrlenu(FuncCall->args);
-    for (size_t i = 0; i < ArgCount; i++) {
-        if (FuncCall->args[i]->data.variable_declaration.type.kind == DATATYPE_VARIADIC)
-            continue;
-        arrput(arg_temps, qbe_generate_expr_node(f, FuncCall->args[i], ctx));
+    temporary_t* arg_temps = NULL;
+    {
+        bool variadic_arguments = false;
+        for (size_t i = 0; i < ArgCount; i++) {
+            if (FuncCall->args[i]->data.variable_declaration.type.kind == DATATYPE_VARIADIC) {
+                variadic_arguments = true;
+                continue;
+            }
+
+            temporary_t expr_temp = qbe_generate_expr_node(f, FuncCall->args[i], ctx);
+            
+            // argument promotion
+            // TODO: Implement ints. (only floats to doubles atm)
+            if (variadic_arguments) {
+                if (strcmp(FuncCall->args[i]->expr_type.typename, "f32") == 0) {
+                    temporary_t r = get_temporary();
+                    fprintf(f, "\t");
+                    fprint_temp(f, r);
+                    fprintf(f, "=d exts ");
+                    fprint_temp(f, expr_temp);
+                    fprintf(f, "\n");
+                    expr_temp = r;
+                }
+            }
+
+            arrput(arg_temps, expr_temp);
+        }
     }
 
     // 
@@ -135,12 +157,21 @@ temporary_t qbe_generate_function_call(
             continue;
         }
 
-        const char* ArgType = qbe_get_abi_type(&Expr->expr_type);
-        if (ArgType == NULL) {
-            fprintf(f, ":%s ", Expr->expr_type.typename);
-        } else {
-            fprintf(f, "%s ", ArgType);
+        // Account for argument promotion
+        // TODO: integer promotion
+        const char* arg_abi = qbe_get_abi_type(&Expr->expr_type);
+        if (was_variadic && arg_abi) {
+            if (strcmp(arg_abi, "s") == 0) {
+                arg_abi = "d";
+            }
         }
+
+        if (arg_abi) {
+            fprintf(f, "%s ", arg_abi);
+        } else {
+            fprintf(f, ":%s ", Expr->expr_type.typename);
+        }
+
         fprint_temp(f, arg_temps[i-was_variadic]);
         fprintf(f, ", ");
     }
