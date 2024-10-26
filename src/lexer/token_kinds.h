@@ -93,9 +93,11 @@ _DEF(TOK_EQUALS, "="),
 _DEF(TOK_DOUBLE_EQUAL, "=="),
 
 _DEF(TOK_PLUS, "+"),
+_DEF(TOK_PLUS_PLUS, "++"),
 _DEF(TOK_PLUS_EQUAL, "+="),
 
 _DEF(TOK_MINUS, "-"),
+_DEF(TOK_MINUS_MINUS, "--"),
 _DEF(TOK_MINUS_EQUAL, "-="),
 
 _DEF(TOK_STAR, "*"),

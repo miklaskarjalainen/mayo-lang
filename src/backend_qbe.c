@@ -382,7 +382,26 @@ temporary_t qbe_generate_expr_node(FILE* f, ast_node_t* ast, backend_ctx_t* ctx)
         }
 
         case AST_UNARY_OP: {
-            return qbe_generate_expr_node(f, ast->data.unary_op.operand, ctx); 
+            switch(ast->data.unary_op.operation) {
+                case UNARY_OP_NEGATE: {
+                    temporary_t expr = qbe_generate_expr_node(f, ast->data.unary_op.operand, ctx);
+                    temporary_t r = get_temporary();
+                    fprintf(f, "\t"),
+                    fprint_temp(f, r);
+                    fprintf(f, " =%c mul ", qbe_get_base_type(&ast->expr_type));
+                    fprint_temp(f, expr);
+                    fprintf(f, ", -1\n");
+                    return r;
+                }
+
+                case UNARY_OP_ADDRESS_OF: {
+                    return qbe_generate_expr_node(f, ast->data.unary_op.operand, ctx); 
+                }
+
+                default: {
+                    PANIC("?");
+                }
+            }
         }
 
         case AST_BOOL_LITERAL: {

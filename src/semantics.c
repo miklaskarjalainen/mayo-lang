@@ -177,14 +177,25 @@ static datatype_t _analyze_expression_impl(global_scope_t* global, const sym_tab
         }
 
         case AST_UNARY_OP: {
-            // Create a type which a pointer to this one.
-            datatype_t* inner = arena_alloc(global->arena, sizeof(datatype_t));
-            *inner = _analyze_expression(global, variables, expr->data.unary_op.operand);
+            switch (expr->data.unary_op.operation) {
+                case UNARY_OP_NEGATE: {
+                    return _analyze_expression(global, variables, expr->data.unary_op.operand); 
+                }
+                case UNARY_OP_ADDRESS_OF: {
+                    // Create a type which a pointer to this one.
+                    datatype_t* inner = arena_alloc(global->arena, sizeof(datatype_t));
+                    *inner = _analyze_expression(global, variables, expr->data.unary_op.operand);
 
-            return (datatype_t) {
-                .kind = DATATYPE_POINTER,
-                .base = inner
-            };
+                    return (datatype_t) {
+                        .kind = DATATYPE_POINTER,
+                        .base = inner
+                    };
+                }
+
+                default: {
+                    PANIC("not implemented for %u", expr->data.unary_op.operation);
+                }
+            }
         }
 
         case AST_BINARY_OP: {

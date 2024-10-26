@@ -146,6 +146,14 @@ static ast_node_t* ast_parse_primary(parser_t* parser) {
             break;
         }
 
+        case TOK_MINUS: {
+            ast = ast_arena_new(parser->arena, AST_UNARY_OP);
+            ast->data.unary_op.operation = UNARY_OP_NEGATE;
+            ast->data.unary_op.operand = ast_parse_expression(parser, 0);
+            ast->position = tk.position;
+            break;
+        }
+
         case TOK_IDENTIFIER: {
             /* function call */
             const token_t Peeked = parser_peek(parser);
