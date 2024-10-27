@@ -60,6 +60,8 @@ if (BUILD_TESTS)
         tests/common/test_utils.c
         
         tests/lexer/test_lexer.c
+
+        tests/parser/test_parser.c
     
         tests/test_main.c
     )
