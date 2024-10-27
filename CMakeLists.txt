@@ -55,6 +55,7 @@ set(INCLUDE_DIRS
 if (BUILD_TESTS)
     # Add your source files here
     set(TEST_SRC_FILES
+        tests/common/test_arena.c
         tests/common/test_string.c
         tests/common/test_utils.c
         
