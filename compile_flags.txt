@@ -6,3 +6,6 @@
 -Wmissing-prototypes
 -Wstrict-prototypes
 -Ithirdparty
+-Isrc
+-Itests
+-Ibuild/_deps/criterion-src/include
