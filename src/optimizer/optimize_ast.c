@@ -118,6 +118,26 @@ static void _ast_constant_folding(struct ast_node_t* ast) {
             break;
         }
 
+        case AST_UNARY_OP: {
+            _ast_constant_folding(ast->data.unary_op.operand);
+            ast_kind_t kind = ast->data.unary_op.operand->kind;
+            switch (ast->data.unary_op.operation) {
+                case UNARY_OP_NEGATE: {
+                    if (kind == AST_INTEGER_LITERAL) {
+                        ast->data.integer = ast->data.unary_op.operand->data.integer * -1;
+                        ast->kind = AST_INTEGER_LITERAL;
+                    }
+                    break;
+                }
+
+                default: {
+                    
+                }
+            }
+
+
+            break;
+        }
 
 
         default : {
