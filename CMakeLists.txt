@@ -48,43 +48,49 @@ set(SOURCE_FILES
 
 set(INCLUDE_DIRS
     thirdparty
+    src
 )
 
 #
 if (BUILD_TESTS)
+    # Add your source files here
+    set(TEST_SRC_FILES
+        tests/common/test_string.c
+        tests/common/test_utils.c
+        
+        tests/lexer/test_lexer.c
+    
+        tests/test_main.c
+    )
+
     find_package(Criterion)
-    if(CRITERION_FOUND)
-        # If Criterion is found, add tests
-        message(STATUS "Criterion found. Adding tests.")
+    if (NOT CRITERION_FOUND) 
+        message(STATUS "Pulling Criterion from git!")
 
-        # Add your source files here
-        set(TEST_SRC_FILES
-            tests/common/test_string.c 
-
-            tests/lexer/lexer_token.c 
-            tests/lexer/lexer.c 
-
-            # tests/test_core_type.c 
-            tests/test_utils.c
-            tests/test_main.c
+        include(FetchContent)
+        FetchContent_Declare(
+            Criterion
+            GIT_REPOSITORY https://github.com/Snaipe/Criterion
+            GIT_TAG        9c01cbe75002ad8640e0f411f453fbcd0567ff79 # v2.4.2
         )
-        add_executable(tests ${SOURCE_FILES} ${TEST_SRC_FILES})
-        target_include_directories(tests PRIVATE ${INCLUDE_DIRS})
 
-        # Link the Criterion library to your test executable
-        target_link_libraries(tests PRIVATE criterion)
-        target_compile_options(tests PRIVATE -g -Wall -Wextra -Werror)
-
-        # Add the tests to CTest
-        # usage:
-        # './bin/tests'               via binary
-        # OR
-        # 'ctest --output-on-failure' via ctest (in 'bin/')
-        enable_testing()
-        add_test(NAME Tests COMMAND tests)
-    else()
-        message(WARNING "Criterion not found. Tests will not be built.")
+        FetchContent_MakeAvailable(Criterion)
     endif()
+
+    add_executable(tests ${SOURCE_FILES} ${TEST_SRC_FILES})
+    target_include_directories(tests PRIVATE tests ${INCLUDE_DIRS} criterion)
+    target_compile_definitions(tests PRIVATE MAYO_TESTS)
+
+    # Link the Criterion library to your test executable
+    target_link_libraries(tests PRIVATE criterion)
+    target_compile_options(tests PRIVATE -g -Wall -Wextra -Werror)
+    # Add the tests to CTest
+    # usage:
+    # './bin/tests'               via binary
+    # OR
+    # 'ctest --output-on-failure' via ctest (in 'bin/')
+    enable_testing()
+    add_test(NAME Tests COMMAND tests)
 endif()
 
 # Set the name of the executable

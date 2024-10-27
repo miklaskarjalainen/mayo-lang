@@ -1,5 +1,5 @@
 #include <criterion/criterion.h>
-#include "../src/common/utils.h"
+#include "common/utils.h"
 
 #define expect_digits(eval, expect) { \
     const size_t got = count_digits(eval); \

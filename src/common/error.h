@@ -3,16 +3,23 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <setjmp.h>
 #include "utils.h"
 
-extern jmp_buf g_Jumpluff;
 
 #define PANIC_EXIT_CODE EXIT_FAILURE
 #define ASSERT_EXIT_CODE EXIT_FAILURE
 
-#define SETJUMP() (setjmp(g_Jumpluff))
-#define LONGJUMP(num) longjmp(g_Jumpluff, num)
+// TODO: for multithreading and easier testing the jmp_buf should not be global.
+// For tests we define this macros again.
+#if !defined(MAYO_TESTS)
+#   include <setjmp.h>
+#   define SETJUMP() (setjmp(g_Jumpluff))
+#   define LONGJUMP(num) longjmp(g_Jumpluff, num)
+    extern jmp_buf g_Jumpluff;
+#else
+#   define SETJUMP() (1)
+#   define LONGJUMP(num) (exit(1))
+#endif
 
 #define PANIC(...)                                                                                      \
     do {                                                                                                \

@@ -3,8 +3,8 @@
 
 #include <criterion/criterion.h>
 
-#include "../../src/common/string.h"
-#include "../../src/common/error.h"
+#include "common/string.h"
+#include "common/error.h"
 
 Test(string_tests, string_new_n_delete) {
     string_t str = string_new();
@@ -160,6 +160,4 @@ Test(string_tests, string_find) {
     size_t location2 = string_find(&Str, 'W', 8);
     cr_assert_eq(location2, STRING_NPOS);
 }
-
-
 
