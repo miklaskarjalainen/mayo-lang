@@ -16,16 +16,16 @@ typedef enum comment_type {
 } comment_type;
 
 typedef struct lexer_t {
+    struct arena_t* arena;
+    struct token_t* tokens;
     string_t word;
     comment_type is_commented;
-    struct token_t* tokens;
-    struct arena_t* arena;
 
     /* Content */
     char* filepath;
+    char* content;
     size_t content_pointer;
     size_t content_length;
-    char* content;
 
     /* For Errors */
     size_t line, column;

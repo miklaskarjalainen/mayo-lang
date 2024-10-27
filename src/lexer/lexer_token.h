@@ -31,7 +31,6 @@ token_kind_t token_kind_from_str(const char* str);
 token_kind_t token_get_keyword(const char* str);
 
 token_t token_new(token_kind_t kind);
-void token_clear(token_t* tk); // Clears the token (deletes internal pointers etc), but can be reused.
 
 void token_print_pretty(const token_t* tk);
 

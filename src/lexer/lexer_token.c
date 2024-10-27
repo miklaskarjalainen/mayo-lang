@@ -74,10 +74,6 @@ token_t token_new(token_kind_t kind) {
     };
 }
 
-void token_clear(token_t* tk) {
-    tk->kind = TOK_NONE;
-}
-
 void token_print_pretty(const token_t* tk) {
     printf("[ %s", token_kind_to_str_internal(tk->kind));
 

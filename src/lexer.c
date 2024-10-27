@@ -44,10 +44,13 @@ void lexer_str(lexer_t* l, arena_t* arena, char* content, const char* fpath) {
     l->arena = arena;
     l->tokens = NULL;
     l->word = string_with_capacity(0xFF);
+    l->is_commented = COMMENT_NONE;
+
     l->filepath = filepath_copied;
     l->content = content;
     l->content_pointer = 0;
     l->content_length = strlen(content);
+
     l->line = 1;
     l->column = 1;
     l->word_begin = lexer_get_position(l);
@@ -56,16 +59,13 @@ void lexer_str(lexer_t* l, arena_t* arena, char* content, const char* fpath) {
 void lexer_cleanup(lexer_t* lexer) {
     DEBUG_ASSERT(lexer != NULL, "Trying to delete NULL");
 
-    // Delete allocated tokens
-    const size_t TkLen = arrlenu(lexer->tokens);
-    for (size_t i = 0; i < TkLen; i++) {
-        token_clear(&lexer->tokens[i]);
-    }
     arrfree(lexer->tokens);
 
     // Delete everything else
     string_delete(&lexer->word); 
-    if (lexer->content != NULL) {
+
+    // If the content was read from a filepath then it was allocated.
+    if (lexer->content && lexer->filepath) {
         free(lexer->content); 
     }
 }
